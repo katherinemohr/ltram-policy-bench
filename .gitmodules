@@ -1,3 +1,4 @@
 [submodule "linux"]
 	path = linux
 	url = git@github.com:katherinemohr/ltram-linux.git
+	branch = v6.8
