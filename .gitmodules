@@ -1,3 +1,3 @@
 [submodule "linux"]
 	path = linux
-	url = ./linux/
+	url = git@github.com:katherinemohr/ltram-linux.git
