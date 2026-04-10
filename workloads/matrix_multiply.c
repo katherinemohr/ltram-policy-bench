@@ -12,7 +12,7 @@
 //
 // Run `apt install libnuma-dev`if numa.h is missing.
 //
-// gcc -O3 -march=native mm_numa.c -lnuma
+// gcc -O3 -march=native matrix_multiply.c -lnuma
 
 #include <numa.h>
 #include <stdlib.h>
