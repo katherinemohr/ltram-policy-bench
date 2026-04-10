@@ -3,16 +3,19 @@
 This is a testbench for running different DRAM <-> LtRAM page migration policies on a QEMU/KVM VM.
 
 To emulate our eventual setup, the VM is configured with 2 NUMA nodes like:
-* NUMA Node 0 (DRAM):
+* **NUMA Node 0 (DRAM):**
   * 4GB RAM
   * CPUs 0-3
-* NUMA Node 1 (LtRAM):
+* **NUMA Node 1 (LtRAM):**
   * 4GB RAM
   * No CPUs
-  * TODO: specify latency/bandwidth characteristics
+  * **TODO:** specify latency/bandwidth characteristics
+
+---
 
 ## Directory Structure
-```
+
+```text
 |__ ltram_policy_bench
   |__ buildroot: basic busybox to boot into (TODO: add script for setting this up)
   |__ linux: custom Linux kernel to modify to try different page migration strategies
@@ -21,109 +24,112 @@ To emulate our eventual setup, the VM is configured with 2 NUMA nodes like:
   |__ workloads: datacenter workloads to test paging strategies on
 ```
 
+---
+
 ## Setup
 
-0. **Clone the Repo**
+### 1. Clone the Repository
+Remember to include submodules when cloning to ensure all dependencies are present:
 
- Remember to include submodules when cloning, like
- ```
- git clone --recurse-submodules --shallow-submodules git@github.com:katherinemohr/ltram-policy-bench.git
- ```
+```bash
+git clone --recurse-submodules --shallow-submodules git@github.com:katherinemohr/ltram-policy-bench.git
+```
 
-1. **Dependencies**
+### 2. Install Dependencies
 
- Start by installing the dependencies needed to build linux:
- ```
- sudo apt install -y build-essential libncurses-dev bison flex \
+#### Linux Build Tools
+```bash
+sudo apt install -y build-essential libncurses-dev bison flex \
                      libssl-dev libelf-dev git fakeroot dwarves bc pkg-config
- ```
- 
- Install the needed packages for QEMU/KVM:
- ```
- sudo apt install -y qemu-kvm qemu-system-x86 qemu-utils numactl \
+```
+
+#### QEMU/KVM Tools
+```bash
+sudo apt install -y qemu-kvm qemu-system-x86 qemu-utils numactl \
                      numad linux-tools-common linux-tools-generic
- ```
- and check that you are in the KVM group with
- ```
- sudo usermod -aG kvm katm
- ```
+```
 
-2. **Build Linux**
+#### Permissions
+Ensure you are in the `kvm` group:
+```bash
+sudo usermod -aG kvm [username]
+```
 
- *Download source*
- 
- The `linux/` submodule should already exist from the initial `git clone`.
- ```
- cd linux
- ```
- 
- *Configure*
- ```
- cp /boot/config-$(uname -r) .config
- make olddefconfig
- 
- scripts/config --enable NUMA
- scripts/config --enable ACPI_NUMA
- scripts/config --enable HMAT
- scripts/config --enable MIGRATION
- scripts/config --enable NUMA_BALANCING
- scripts/config --enable NUMA_BALANCING_DEFAULT_ENABLED
- scripts/config --enable MEMORY_HOTPLUG
- scripts/config --enable TRACEPOINTS
- scripts/config --enable KPROBES
- scripts/config --enable DEBUG_FS
- scripts/config --enable DEBUG_VM
- scripts/config --enable 9P_FS          # for virtfs shared dirs
- scripts/config --enable 9P_FS_POSIX_ACL
- scripts/config --enable NET_9P
- scripts/config --enable NET_9P_VIRTIO
- scripts/config --enable VIRTIO_PCI
- 
- make olddefconfig   # resolve any new dependencies
- ```
- Alternately, the config I (kmohr) have been using is available under `configs/linux-config`.
- 
- *Build*
- ```
- make -j$(nproc) bzImage
- ```
- This will generate a bootable linux image file at `arch/x86/boot/bzImage`
- > [!NOTE]
- > The initial build will take a while, like 10s of minutes, but incremental builds aren't so bad.)
+### 3. Build Linux
 
-3. **Build buildroot**
+#### A. Navigate to Source
+The `linux/` submodule should already exist from the initial clone.
+```bash
+cd linux
+```
 
- `cd` back into the top dir.
- 
- *Download source*
- ```
- git clone --depth=1 https://github.com/buildroot/buildroot.git
- cd buildroot
- ```
- 
- *Configure*
- 
- My config exists at `configs/buildroot-config`. Just copy that for now.
- ```
- cp ../configs/buildroot-config .config
- ```
- 
- > [!NOTE]
- > TODO(kmohr): I don't think this is portable
- 
- *Build*
- ```
- make -j$(nproc)
- ```
- This will output `output/images/rootfs.ext4`
+#### B. Configure the Kernel
+```bash
+cp /boot/config-$(uname -r) .config
+make olddefconfig
 
-4. **Verify run-vm.sh**
+# Enable NUMA and Migration features
+scripts/config --enable NUMA
+scripts/config --enable ACPI_NUMA
+scripts/config --enable HMAT
+scripts/config --enable MIGRATION
+scripts/config --enable NUMA_BALANCING
+scripts/config --enable NUMA_BALANCING_DEFAULT_ENABLED
+scripts/config --enable MEMORY_HOTPLUG
+scripts/config --enable TRACEPOINTS
+scripts/config --enable KPROBES
+scripts/config --enable DEBUG_FS
+scripts/config --enable DEBUG_VM
+scripts/config --enable 9P_FS           # for virtfs shared dirs
+scripts/config --enable 9P_FS_POSIX_ACL
+scripts/config --enable NET_9P
+scripts/config --enable NET_9P_VIRTIO
+scripts/config --enable VIRTIO_PCI
 
- Double check that the files defined at the top of `scripts/run-vm.sh` exist.
+make olddefconfig   # resolve any new dependencies
+```
+> **Note:** Alternately, the config I (kmohr) used is available under `configs/linux-config`.
+
+#### C. Compile
+```bash
+make -j$(nproc) bzImage
+```
+> [!NOTE]
+> The initial build will take a while (approx. 10+ minutes), but incremental builds are much faster.
+> The bootable image is generated at `arch/x86/boot/bzImage`.
+
+### 4. Build Buildroot
+`cd` back into the top-level directory before starting these steps.
+
+#### A. Download Source
+```bash
+git clone --depth=1 [https://github.com/buildroot/buildroot.git](https://github.com/buildroot/buildroot.git)
+cd buildroot
+```
+
+#### B. Configure & Build
+```bash
+# Use the provided config
+cp ../configs/buildroot-config .config
+
+# Build the rootfs
+make -j$(nproc)
+```
+> [!NOTE]
+> **TODO(kmohr):** Check if this config is portable, I'm guessing not.
+
+This process will output `output/images/rootfs.ext4`.
+
+### 5. Verify Scripts
+Double check that the file paths defined at the top of `scripts/run-vm.sh` correctly point to your newly generated `bzImage` and `rootfs.ext4` files.
+
+---
 
 ## Workflow
-Once setup is complete, the workflow is just:
-1. Make any kernel modifications in `linux/`
-2. Within `linux/`, run `make -j$(nproc) bzImage` to update the linux build
-3. From this directory, run `bash scripts/run-vm.sh` and check the outputs in `results/`
 
+Once the initial setup is complete, the standard development loop is:
+
+1.  Make any kernel modifications in the `linux/` directory.
+2.  Within `linux/`, run `make -j$(nproc) bzImage`.
+3.  From the project root, run `bash scripts/run-vm.sh`.
+4.  Check the outputs generated in the `results/` directory.
