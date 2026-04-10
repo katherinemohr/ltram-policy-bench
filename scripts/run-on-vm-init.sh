@@ -3,10 +3,12 @@
 start_run() {
     mkdir -p /mnt/workloads
     mkdir -p /mnt/results
+    mkdir -p /mnt/inputs
 
     # Mount the shared directories from the host
     mount -t 9p -o trans=virtio workloads /mnt/workloads
     mount -t 9p -o trans=virtio results /mnt/results
+    mount -t 9p -o trans=virtio inputs /mnt/inputs
 
     # Verify NUMA topology was picked up correctly
     numactl --hardware > /mnt/results/numa-topology.txt
@@ -19,19 +21,8 @@ start_run() {
 }
 
 run_workload() {
-    # Choose your workload
-    # matrix_multiply.c
-    gapbs_pagerank
-}
-
-gapbs_pagerank() {
-    echo "Running GAPbs PageRank..."
-    
-    # -g 20 generates a Kronecker graph with 2^20 vertices
-    # numactl --membind=0 forces all allocations to Node 0 (DRAM)
-    numactl --cpunodebind=0 --membind=0 /mnt/workloads/pr -g 20 > /mnt/results/pr-output.txt 2>&1
-    
-    echo "PageRank complete."
+    # Run workload (replace with your own)
+    echo "doing some work..."
 }
 
 end_run() {
@@ -48,7 +39,7 @@ end_run() {
     cat /sys/kernel/debug/ltram/stats > /mnt/results/ltram-stats.txt 2>/dev/null || true
 
     # Done — power off
-    poweroff -f
+    # poweroff -f
 }
 
 
