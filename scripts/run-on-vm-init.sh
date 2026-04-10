@@ -19,9 +19,19 @@ start_run() {
 }
 
 run_workload() {
-    # Run workload (replace with your own)
-    # /mnt/workloads/stream > /mnt/results/stream-output.txt 2>&1
-    echo "doing some work..."
+    # Choose your workload
+    # matrix_multiply.c
+    gapbs_pagerank
+}
+
+gapbs_pagerank() {
+    echo "Running GAPbs PageRank..."
+    
+    # -g 20 generates a Kronecker graph with 2^20 vertices
+    # numactl --membind=0 forces all allocations to Node 0 (DRAM)
+    numactl --cpunodebind=0 --membind=0 /mnt/workloads/pr -g 20 > /mnt/results/pr-output.txt 2>&1
+    
+    echo "PageRank complete."
 }
 
 end_run() {
