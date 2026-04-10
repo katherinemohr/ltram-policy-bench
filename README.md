@@ -25,95 +25,101 @@ To emulate our eventual setup, the VM is configured with 2 NUMA nodes like:
 
 0. **Clone the Repo**
 
-Remember to include submodules when cloning, like
-`git clone --recurse-submodules --shallow-submodules git@github.com:katherinemohr/ltram-policy-bench.git`
+ Remember to include submodules when cloning, like
+ ```
+ git clone --recurse-submodules --shallow-submodules git@github.com:katherinemohr/ltram-policy-bench.git
+ ```
 
 1. **Dependencies**
 
-Start by installing the dependencies needed to build linux:
-```
-sudo apt install -y build-essential libncurses-dev bison flex \
-                    libssl-dev libelf-dev git fakeroot dwarves bc pkg-config
-```
-
-Install the needed packages for QEMU/KVM:
-```
-sudo apt install -y qemu-kvm qemu-system-x86 qemu-utils numactl \
-                    numad linux-tools-common linux-tools-generic
-```
-and check that you are in the KVM group with
-```
-sudo usermod -aG kvm katm
-```
+ Start by installing the dependencies needed to build linux:
+ ```
+ sudo apt install -y build-essential libncurses-dev bison flex \
+                     libssl-dev libelf-dev git fakeroot dwarves bc pkg-config
+ ```
+ 
+ Install the needed packages for QEMU/KVM:
+ ```
+ sudo apt install -y qemu-kvm qemu-system-x86 qemu-utils numactl \
+                     numad linux-tools-common linux-tools-generic
+ ```
+ and check that you are in the KVM group with
+ ```
+ sudo usermod -aG kvm katm
+ ```
 
 2. **Build Linux**
 
-*Download source*
-The `linux/` submodule should already exist from the initial `git clone`.
-```
-cd linux
-```
-
-*Configure*
-```
-cp /boot/config-$(uname -r) .config
-make olddefconfig
-
-scripts/config --enable NUMA
-scripts/config --enable ACPI_NUMA
-scripts/config --enable HMAT
-scripts/config --enable MIGRATION
-scripts/config --enable NUMA_BALANCING
-scripts/config --enable NUMA_BALANCING_DEFAULT_ENABLED
-scripts/config --enable MEMORY_HOTPLUG
-scripts/config --enable TRACEPOINTS
-scripts/config --enable KPROBES
-scripts/config --enable DEBUG_FS
-scripts/config --enable DEBUG_VM
-scripts/config --enable 9P_FS          # for virtfs shared dirs
-scripts/config --enable 9P_FS_POSIX_ACL
-scripts/config --enable NET_9P
-scripts/config --enable NET_9P_VIRTIO
-scripts/config --enable VIRTIO_PCI
-
-make olddefconfig   # resolve any new dependencies
-```
-Alternately, the config I (kmohr) have been using is available under `configs/linux-config`.
-
-*Build*
-```
-make -j$(nproc) bzImage
-```
-This will generate a bootable linux image file at `arch/x86/boot/bzImage`
-> [!NOTE]
-> The initial build will take a while, like 10s of minutes, but incremental builds aren't so bad.)
+ *Download source*
+ 
+ The `linux/` submodule should already exist from the initial `git clone`.
+ ```
+ cd linux
+ ```
+ 
+ *Configure*
+ ```
+ cp /boot/config-$(uname -r) .config
+ make olddefconfig
+ 
+ scripts/config --enable NUMA
+ scripts/config --enable ACPI_NUMA
+ scripts/config --enable HMAT
+ scripts/config --enable MIGRATION
+ scripts/config --enable NUMA_BALANCING
+ scripts/config --enable NUMA_BALANCING_DEFAULT_ENABLED
+ scripts/config --enable MEMORY_HOTPLUG
+ scripts/config --enable TRACEPOINTS
+ scripts/config --enable KPROBES
+ scripts/config --enable DEBUG_FS
+ scripts/config --enable DEBUG_VM
+ scripts/config --enable 9P_FS          # for virtfs shared dirs
+ scripts/config --enable 9P_FS_POSIX_ACL
+ scripts/config --enable NET_9P
+ scripts/config --enable NET_9P_VIRTIO
+ scripts/config --enable VIRTIO_PCI
+ 
+ make olddefconfig   # resolve any new dependencies
+ ```
+ Alternately, the config I (kmohr) have been using is available under `configs/linux-config`.
+ 
+ *Build*
+ ```
+ make -j$(nproc) bzImage
+ ```
+ This will generate a bootable linux image file at `arch/x86/boot/bzImage`
+ > [!NOTE]
+ > The initial build will take a while, like 10s of minutes, but incremental builds aren't so bad.)
 
 3. **Build buildroot**
 
-`cd` back into the top dir.
-
-*Download source*
-```
-git clone --depth=1 https://github.com/buildroot/buildroot.git
-cd buildroot
-```
-
-*Configure*
-My config exists at `configs/buildroot-config`. Just copy that for now.
-```
-cp ../configs/buildroot-config .config
-```
-
-TODO(kmohr): I don't think this is portable
-
-*Build*
-```
-make -j$(nproc)
-```
-This will output `output/images/rootfs.ext4`
+ `cd` back into the top dir.
+ 
+ *Download source*
+ ```
+ git clone --depth=1 https://github.com/buildroot/buildroot.git
+ cd buildroot
+ ```
+ 
+ *Configure*
+ 
+ My config exists at `configs/buildroot-config`. Just copy that for now.
+ ```
+ cp ../configs/buildroot-config .config
+ ```
+ 
+ > [!NOTE]
+ > TODO(kmohr): I don't think this is portable
+ 
+ *Build*
+ ```
+ make -j$(nproc)
+ ```
+ This will output `output/images/rootfs.ext4`
 
 4. **Verify run-vm.sh**
-Double check that the files defined at the top of `scripts/run-vm.sh` exist.
+
+ Double check that the files defined at the top of `scripts/run-vm.sh` exist.
 
 ## Workflow
 Once setup is complete, the workflow is just:
