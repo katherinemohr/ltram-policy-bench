@@ -18,13 +18,22 @@ start_run() {
 
     # Snapshot vmstat before workload
     cp /proc/vmstat /mnt/results/vmstat-before.txt
+
+    echo 1 > /proc/sys/vm/overcommit_memory
 }
 
 run_workload() {
-    # Choose your workload
-    matmul
-    # gapbs_pagerank
-    # redis
+    # Extract the value of ltram_workload from /proc/cmdline
+    SELECTED=$(grep -o 'ltram_workload=[^ ]*' /proc/cmdline | cut -d= -f2)
+    
+    echo "Kernel boot parameter requested workload: $SELECTED"
+
+    case "$SELECTED" in
+        matmul) matmul ;;
+        gapbs) gapbs_pagerank ;;
+        redis) redis ;;
+        *) echo "Unknown workload: $SELECTED. Defaulting to matmul."; matmul ;;
+    esac
 }
 
 matmul() {
@@ -47,23 +56,21 @@ gapbs_pagerank() {
 }
 
 redis() {
+    export LD_LIBRARY_PATH=/mnt/workloads/lib:$LD_LIBRARY_PATH
+    
+    ip link set lo up
+
     echo "Starting Redis server on Node 0..."
-    
-    # Start Redis in the background, bound to Node 0 (DRAM)
-    # --save "" disables disk snapshots so it stays purely in-memory
     numactl --cpunodebind=0 --membind=0 redis-server --save "" --daemonize yes
-    
-    # Give the daemon a moment to initialize
     sleep 2 
-    
+
+    WORKLOAD_PATH="/mnt/workloads/YCSB-C/workloads/workloadc.spec"
+
     echo "Phase 1: Loading data into Redis..."
-    # Passing -p recordcount overrides the file
-    #recordcount=3200000 is about 3.2GB of data.
-    /mnt/workloads/YCSB-C/ycsbc -load -db redis -threads 1 -P /mnt/workloads/YCSB-C/workloads/workloadc -p recordcount=3200000 -p redis.host=127.0.0.1 -p redis.port=6379 > /mnt/results/ycsb-load.txt
-    
-    # Passing -p operationcount dictates how long the benchmark runs
-    /mnt/workloads/YCSB-C/ycsbc -run -db redis -threads 4 -P /mnt/workloads/YCSB-C/workloads/workloadc -p operationcount=10000000 -p redis.host=127.0.0.1 -p redis.port=6379 > /mnt/results/ycsb-run.txt
-    echo "YCSB workload complete."
+    /mnt/workloads/YCSB-C/ycsbc -db redis -P "$WORKLOAD_PATH" > /mnt/results/ycsb-load.txt 2>&1
+
+    echo "Phase 2: Running operations..."
+    /mnt/workloads/YCSB-C/ycsbc -db redis -P "$WORKLOAD_PATH" > /mnt/results/ycsb-run.txt 2>&1
 }
 
 end_run() {
@@ -80,7 +87,8 @@ end_run() {
     cat /sys/kernel/debug/ltram/stats > /mnt/results/ltram-stats.txt 2>/dev/null || true
 
     # Done — power off
-    # poweroff -f
+    echo "Workload complete. Powering off..."
+    poweroff -f
 }
 
 

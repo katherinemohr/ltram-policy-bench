@@ -119,10 +119,10 @@ make -j$(nproc)
 > [!NOTE]
 > **TODO(kmohr):** Check if this config is portable, I'm guessing not.
 
-This process will output `output/images/rootfs.ext4`.
+This process will output `output/images/rootfs.ext2`.
 
 ### 5. Verify Scripts
-Double check that the file paths defined at the top of `scripts/run-vm.sh` correctly point to your newly generated `bzImage` and `rootfs.ext4` files.
+Double check that the file paths defined at the top of `scripts/run-vm.sh` correctly point to your newly generated `bzImage` and `rootfs.ext2` files.
 
 ---
 
