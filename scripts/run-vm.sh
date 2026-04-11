@@ -1,11 +1,17 @@
 #!/bin/bash
 set -e
 
-# TODO(kmohr): make this more portable
-KERNEL=~/workspace/ltram-policy-bench/linux/arch/x86/boot/bzImage
-ROOTFS=~/workspace/ltram-policy-bench/buildroot/output/images/rootfs.ext2
-RESULTS=~/workspace/ltram-policy-bench/results
-WORKLOADS=~/workspace/ltram-policy-bench/workloads
+# Dynamically find the directory where this script is located
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+
+# Go up one level to find the main ltram-policy-bench root folder
+BASE_DIR="$(dirname "$SCRIPT_DIR")"
+
+# Set all paths relative to that root folder
+KERNEL="${BASE_DIR}/linux/arch/x86/boot/bzImage"
+ROOTFS="${BASE_DIR}/buildroot/output/images/rootfs.ext2"
+RESULTS="${BASE_DIR}/results"
+WORKLOADS="${BASE_DIR}/workloads"
 
 mkdir -p $RESULTS
 
