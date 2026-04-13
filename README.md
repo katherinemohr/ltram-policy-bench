@@ -115,10 +115,10 @@ cp ../configs/buildroot-config .config
 ```
 or configure it yourself. The important configuration params to change are
 1. Set up the overlay. 
-  a. Create an overlay folder. My `$OVERLAY` is `ltram-policy-bench/buildroot/overlay`
-  b. Set up the `etc` dir with `mkdir -p overlay/etc/init.d` and 
-  c. Copy in the `run-on-vm-init.sh` as a boot script like `cp scripts/run-on-vm-init.sh buildroot/overlay/etc/init.d/S51ltramrun`
-  d. Change the buildroot config to point at this with `BR2_ROOTFS_OVERLAY="$OVERLAY"`
+    1. Create an overlay folder. My `$OVERLAY` is `ltram-policy-bench/buildroot/overlay`
+    2. Set up the `etc` dir with `mkdir -p overlay/etc/init.d` and 
+    3. Copy in the `run-on-vm-init.sh` as a boot script like `cp scripts/run-on-vm-init.sh buildroot/overlay/etc/init.d/S51ltramrun`
+    4. Change the buildroot config to point at this with `BR2_ROOTFS_OVERLAY="$OVERLAY"`
 2. Make sure it doesn't try to build linux with `BR2_LINUX_KERNEL=n`
 3. Make sure it doesn't build the bootloader either with `BR2_TARGET_GRUB2=n` and `BR2_TARGET_SYSLINUX=n`
 
@@ -127,7 +127,6 @@ or configure it yourself. The important configuration params to change are
 make -j$(nproc)
 ```
 
-```
 > [!NOTE]
 > **TODO(kmohr):** Check if this config is portable, I'm guessing not.
 
@@ -146,3 +145,5 @@ Once the initial setup is complete, the standard development loop is:
 2.  Within `linux/`, run `make -j$(nproc) bzImage`.
 3.  From the project root, run `bash scripts/run-vm.sh`.
 4.  Check the outputs generated in the `results/` directory.
+
+Whenever you change the files in the overlay (ie. `run-on-vm-init.sh`), you will need to make sure they are actually updated in the `overlay/` folder and rebuild `buildroot/` with `make -j$(nproc)`
