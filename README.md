@@ -109,12 +109,24 @@ cd buildroot
 ```
 
 #### B. Configure & Build
+You can use the provided config with
 ```bash
-# Use the provided config
 cp ../configs/buildroot-config .config
+```
+or configure it yourself. The important configuration params to change are
+1. Set up the overlay. 
+  a. Create an overlay folder. My `$OVERLAY` is `ltram-policy-bench/buildroot/overlay`
+  b. Set up the `etc` dir with `mkdir -p overlay/etc/init.d` and 
+  c. Copy in the `run-on-vm-init.sh` as a boot script like `cp scripts/run-on-vm-init.sh buildroot/overlay/etc/init.d/S51ltramrun`
+  d. Change the buildroot config to point at this with `BR2_ROOTFS_OVERLAY="$OVERLAY"`
+2. Make sure it doesn't try to build linux with `BR2_LINUX_KERNEL=n`
+3. Make sure it doesn't build the bootloader either with `BR2_TARGET_GRUB2=n` and `BR2_TARGET_SYSLINUX=n`
 
+```bash
 # Build the rootfs
 make -j$(nproc)
+```
+
 ```
 > [!NOTE]
 > **TODO(kmohr):** Check if this config is portable, I'm guessing not.
