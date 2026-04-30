@@ -1,5 +1,9 @@
 CC=g++
+USE_TBB ?= 1
 CFLAGS=-std=c++11 -c -g -Wall -fgnu-tm
+ifeq ($(USE_TBB),1)
+  CFLAGS += -DUSE_TBB
+endif
 INCLUDES=-I../
 SOURCES=$(wildcard *.cc)
 OBJECTS=$(SOURCES:.cc=.o)
@@ -11,4 +15,3 @@ all: $(SOURCES) $(OBJECTS)
 
 clean:
 	$(RM) $(OBJECTS)
-

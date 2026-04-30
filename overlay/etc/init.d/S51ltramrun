@@ -1,5 +1,15 @@
 #!/bin/sh
 
+INTERACTIVE=0
+
+detect_interactive() {
+    # Check kernel command line for interactive=1
+    if grep -q "interactive=1" /proc/cmdline; then
+        echo "Interactive mode detected: skipping workload and shutdown."
+        INTERACTIVE=1
+    fi
+}
+
 start_run() {
     mkdir -p /mnt/workloads
     mkdir -p /mnt/results
@@ -23,9 +33,15 @@ start_run() {
 }
 
 run_workload() {
+    # If we're in interactive mode, skip running any workload
+    if [ "$INTERACTIVE" -eq 1 ]; then
+        echo "Interactive mode: not running any workload."
+        return 0
+    fi
+
     # Extract the value of ltram_workload from /proc/cmdline
     SELECTED=$(grep -o 'ltram_workload=[^ ]*' /proc/cmdline | cut -d= -f2)
-    
+
     echo "Kernel boot parameter requested workload: $SELECTED"
 
     case "$SELECTED" in
@@ -38,33 +54,33 @@ run_workload() {
 
 matmul() {
     echo "Starting Matrix Multiplication workload..."
-    
+
     # Notice the added /matmul/ in the path
     /mnt/workloads/matmul/matrix_multiply > /mnt/results/matrix-output.txt
-    
+
     echo "Matrix Multiplication complete."
 }
 
 gapbs_pagerank() {
     echo "Running GAPbs PageRank..."
-    
+
     # -g 20 generates a Kronecker graph with 2^20 vertices
     # numactl --membind=0 forces all allocations to Node 0 (DRAM)
     numactl --cpunodebind=0 --membind=0 /mnt/workloads/pr -g 20 > /mnt/results/pr-output.txt 2>&1
-    
+
     echo "PageRank complete."
 }
 
 redis() {
-    export LD_LIBRARY_PATH=/mnt/workloads/lib:$LD_LIBRARY_PATH
-    
+    export LD_LIBRARY_PATH=/mnt/workloads/YCSB-C/lib:$LD_LIBRARY_PATH
+
     ip link set lo up
 
     echo "Starting Redis server on Node 0..."
     numactl --cpunodebind=0 --membind=0 redis-server --save "" --daemonize yes
-    sleep 2 
+    sleep 2
 
-    WORKLOAD_PATH="/mnt/workloads/YCSB-C/workloads/workloadc.spec"
+    WORKLOAD_PATH="/mnt/workloads/YCSB-C/workloads/workloadmini.spec"
 
     echo "Phase 1: Loading data into Redis..."
     /mnt/workloads/YCSB-C/ycsbc -db redis -P "$WORKLOAD_PATH" > /mnt/results/ycsb-load.txt 2>&1
@@ -86,6 +102,12 @@ end_run() {
     # Your custom debugfs counters (once you've added them to the kernel)
     cat /sys/kernel/debug/ltram/stats > /mnt/results/ltram-stats.txt 2>/dev/null || true
 
+    # In interactive mode, do not power off the VM
+    if [ "$INTERACTIVE" -eq 1 ]; then
+        echo "Interactive mode: leaving VM running."
+        return 0
+    fi
+
     # Done — power off
     echo "Workload complete. Powering off..."
     poweroff -f
@@ -94,6 +116,7 @@ end_run() {
 
 case "$1" in
 	start)
+        detect_interactive
         start_run
         run_workload
         end_run;;
