@@ -4,10 +4,10 @@ This is a testbench for running different DRAM <-> LtRAM page migration policies
 
 To emulate our eventual setup, the VM is configured with 2 NUMA nodes like:
 * **NUMA Node 0 (DRAM):**
-  * 4GB RAM
+  * 7.75GB RAM
   * CPUs 0-3
 * **NUMA Node 1 (LtRAM):**
-  * 4GB RAM
+  * 0.25GB RAM
   * No CPUs
   * **TODO:** specify latency/bandwidth characteristics
 
