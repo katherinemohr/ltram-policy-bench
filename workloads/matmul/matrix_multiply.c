@@ -20,9 +20,10 @@
 #include <string.h>
 #include <stdio.h>
 #include <time.h>
+#include <sys/mman.h>
 
 #define N 1024
-#define ITERS 100
+#define ITERS 10
 
 static void fill_random(float *x, size_t n, uint64_t seed)
 {
@@ -71,6 +72,9 @@ void numa_mm_repeat(int iters)
 
     fill_random(result, elems, 0x1234);
     fill_random(A,      elems, 0x9876);
+
+    // debugging: make sure A is actually only read from
+    mprotect(A, bytes, PROT_READ);
 
     for (int t = 0; t < iters; t++) {
         memset(tmp, 0, bytes);

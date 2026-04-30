@@ -1,13 +1,20 @@
 #!/bin/bash
-# Check if exactly one argument is provided
-if [ "$#" -ne 1 ]; then
-    echo "Usage: ./run-vm.sh [workload_name]"
-    echo "Available workloads: matmul, gapbs, redis"
+# Check if at least one argument is provided
+if [ "$#" -lt 1 ]; then
+    echo "Usage: ./run-vm.sh [workload_name|interactive]"
+    echo "Available workloads: matmul, gapbs, redis, interactive"
     exit 1
 fi
 
-# Store the requested workload
-WORKLOAD=$1
+MODE=$1
+
+if [ "$MODE" = "interactive" ]; then
+    INTERACTIVE=1
+    WORKLOAD=""
+else
+    INTERACTIVE=0
+    WORKLOAD=$MODE
+fi
 
 set -e
 
@@ -32,15 +39,15 @@ qemu-system-x86_64 \
   -smp 4 \
   -m 8G \
   \
-  -object memory-backend-ram,id=m0,size=4G \
-  -object memory-backend-ram,id=m1,size=4G \
+  -object memory-backend-ram,id=m0,size=7936M \
+  -object memory-backend-ram,id=m1,size=256M \
   -numa node,nodeid=0,memdev=m0,cpus=0-3 \
   -numa node,nodeid=1,memdev=m1 \
   -numa dist,src=0,dst=1,val=20 \
   -numa dist,src=1,dst=0,val=20 \
   -kernel "$KERNEL" \
   -drive file="$ROOTFS",format=raw,if=virtio \
-  -append "root=/dev/vda rw console=ttyS0 nokaslr numa=on ltram_workload=$WORKLOAD" \
+  -append "root=/dev/vda rw console=ttyS0 nokaslr numa=on ltram_workload=$WORKLOAD interactive=$INTERACTIVE" \
   \
   -virtfs local,path="$WORKLOADS",mount_tag=workloads,security_model=passthrough \
   -virtfs local,path="$RESULTS",mount_tag=results,security_model=none \
@@ -48,4 +55,6 @@ qemu-system-x86_64 \
   \
   -nographic \
   -serial mon:stdio \
-  -no-reboot
+  -no-reboot \
+  # add these if you wish to debug with gdb
+  # -s -S

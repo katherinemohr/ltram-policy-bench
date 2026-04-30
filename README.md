@@ -120,6 +120,7 @@ or configure it yourself. The important configuration params to change are
     2. Change the buildroot config to point at this with `BR2_ROOTFS_OVERLAY="$OVERLAY"`
 2. Make sure it doesn't try to build linux with `BR2_LINUX_KERNEL=n`
 3. Make sure it doesn't build the bootloader either with `BR2_TARGET_GRUB2=n` and `BR2_TARGET_SYSLINUX=n`
+4. Enable redis with `BR2_PACKAGE_REDIS=y` (C++ also needs to be enabled for this to work.)
 
 ```bash
 # Build the rootfs
