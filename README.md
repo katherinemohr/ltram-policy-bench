@@ -4,12 +4,16 @@ This is a testbench for running different DRAM <-> LtRAM page migration policies
 
 To emulate our eventual setup, the VM is configured with 2 NUMA nodes like:
 * **NUMA Node 0 (DRAM):**
-  * 7.75GB RAM
+  * 7.75GB RAM (NOTE: on Enzian, this will actually be 128GB)
   * CPUs 0-3
 * **NUMA Node 1 (LtRAM):**
   * 0.25GB RAM
   * No CPUs
-  * **TODO:** specify latency/bandwidth characteristics
+  * LtRAM Specs:
+    * Read (128B): 490ns
+    * Write (256B): 16us
+    * Erase (4KB): 18ms
+    * Cost: theoretically 1/3 DRAM per GB
 
 ---
 
