@@ -1,3 +1,5 @@
+/*
+ * Commenting this all out since this is wrong, but parts of it may be reusable later.
 // Just check writing to (write-protected) NUMA node 1 causes a CoW
 // where the copy is placed on NUMA node 0
 //
@@ -78,3 +80,5 @@ int main() {
     numa_free(ltram_buf, 4096);
     return 0;
 }
+
+*/

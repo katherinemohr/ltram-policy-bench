@@ -2,7 +2,7 @@
 
 trap 'kill $(jobs -p)' SIGINT
 
-workloads="./workloads/workloada.spec ./workloads/workloadb.spec ./workloads/workloadc.spec ./workloads/workloadd.spec ./workloads/workloade.spec ./workloads/workloadf.spec"
+workloads="./workloads/workloada.spec ./workloads/workloadb.spec ./workloads/workloadd.spec ./workloads/workloadf.spec"
 
 for file_name in $workloads; do
   echo "Running Redis with for $file_name"

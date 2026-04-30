@@ -1,6 +1,7 @@
 CC=g++
 PREFIX ?= $(shell pwd)/install
-USE_TBB ?= 1
+# By default, don't use TBB so everything can just be statically linked
+USE_TBB ?= 0
 CFLAGS=-std=c++11 -g -Wall -pthread -I./ -I$(PREFIX)/include
 TBB_LDFLAGS=
 ifeq ($(USE_TBB),1)

@@ -56,4 +56,5 @@ qemu-system-x86_64 \
   -nographic \
   -serial mon:stdio \
   -no-reboot \
+  # add these if you wish to debug with gdb
   # -s -S

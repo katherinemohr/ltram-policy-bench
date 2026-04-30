@@ -55,8 +55,8 @@ run_workload() {
 matmul() {
     echo "Starting Matrix Multiplication workload..."
 
-    # Notice the added /matmul/ in the path
-    /mnt/workloads/matmul/matrix_multiply > /mnt/results/matrix-output.txt
+    # numactl --membind=0 forces all allocations to Node 0 (DRAM)
+    numactl --cpunodebind=0 --membind=0 /mnt/workloads/matmul/matrix_multiply > /mnt/results/matrix-output.txt
 
     echo "Matrix Multiplication complete."
 }
@@ -72,7 +72,7 @@ gapbs_pagerank() {
 }
 
 redis() {
-    export LD_LIBRARY_PATH=/mnt/workloads/YCSB-C/lib:$LD_LIBRARY_PATH
+    export LD_LIBRARY_PATH=/mnt/workloads/YCSB-C/install:$LD_LIBRARY_PATH
 
     ip link set lo up
 

@@ -1,5 +1,5 @@
 CC=g++
-USE_TBB ?= 1
+USE_TBB ?= 0
 CFLAGS=-std=c++11 -c -g -Wall -fgnu-tm
 ifeq ($(USE_TBB),1)
   CFLAGS += -DUSE_TBB
