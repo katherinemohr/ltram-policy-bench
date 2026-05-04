@@ -30,6 +30,9 @@ start_run() {
     cp /proc/vmstat /mnt/results/vmstat-before.txt
 
     echo 1 > /proc/sys/vm/overcommit_memory
+
+    # Start monitoring
+    sh /mnt/workloads/monitoring/meminfo_log.sh > /mnt/results/meminfo.txt &
 }
 
 run_workload() {
@@ -98,6 +101,9 @@ end_run() {
       cat /sys/devices/system/node/node${node}/meminfo \
         > /mnt/results/node${node}-meminfo.txt
     done
+
+    # End monitoring
+    sh /mnt/workloads/monitoring/meminfo_log.sh --end /mnt/results/meminfo.txt > /mnt/results/meminfo_summary.txt
 
     # Your custom debugfs counters (once you've added them to the kernel)
     cat /sys/kernel/debug/ltram/stats > /mnt/results/ltram-stats.txt 2>/dev/null || true
