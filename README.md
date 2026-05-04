@@ -114,10 +114,8 @@ cd buildroot
 ```
 
 #### B. Configure & Build
-You can use the provided config with
-```bash
-cp ../configs/buildroot-config .config
-```
+You can use the provided config located at `ltram_defconfig`
+
 or configure it yourself. The important configuration params to change are
 1. Set up the overlay. 
     1. Create an overlay folder. This is in the repo as `overlay/`.
@@ -130,9 +128,6 @@ or configure it yourself. The important configuration params to change are
 # Build the rootfs
 make -j$(nproc)
 ```
-
-> [!NOTE]
-> **TODO(kmohr):** Check if this config is portable, I'm guessing not.
 
 This process will output `output/images/rootfs.ext2`.
 
