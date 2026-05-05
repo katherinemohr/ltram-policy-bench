@@ -30,6 +30,9 @@ start_run() {
     cp /proc/vmstat /mnt/results/vmstat-before.txt
 
     echo 1 > /proc/sys/vm/overcommit_memory
+
+    # Start monitoring
+    sh /mnt/workloads/monitoring/meminfo_log.sh > /mnt/results/meminfo_$1.txt &
 }
 
 run_workload() {
@@ -39,16 +42,13 @@ run_workload() {
         return 0
     fi
 
-    # Extract the value of ltram_workload from /proc/cmdline
-    SELECTED=$(grep -o 'ltram_workload=[^ ]*' /proc/cmdline | cut -d= -f2)
+    echo "Kernel boot parameter requested workload: $1"
 
-    echo "Kernel boot parameter requested workload: $SELECTED"
-
-    case "$SELECTED" in
+    case "$1" in
         matmul) matmul ;;
         gapbs) gapbs_pagerank ;;
         redis) redis ;;
-        *) echo "Unknown workload: $SELECTED. Defaulting to matmul."; matmul ;;
+        *) echo "Unknown workload: $1. Defaulting to matmul."; matmul ;;
     esac
 }
 
@@ -99,6 +99,9 @@ end_run() {
         > /mnt/results/node${node}-meminfo.txt
     done
 
+    # End monitoring
+    sh /mnt/workloads/monitoring/meminfo_log.sh --end /mnt/results/meminfo_$1.txt > /mnt/results/meminfo_summary_$1.txt
+
     # Your custom debugfs counters (once you've added them to the kernel)
     cat /sys/kernel/debug/ltram/stats > /mnt/results/ltram-stats.txt 2>/dev/null || true
 
@@ -113,13 +116,15 @@ end_run() {
     poweroff -f
 }
 
+# Extract the value of ltram_workload from /proc/cmdline
+SELECTED=$(grep -o 'ltram_workload=[^ ]*' /proc/cmdline | cut -d= -f2)
 
 case "$1" in
 	start)
         detect_interactive
-        start_run
-        run_workload
-        end_run;;
+        start_run $SELECTED
+        run_workload $SELECTED
+        end_run $SELECTED;;
 	*)
 		echo "Usage: $0 {start}"
 		exit 1

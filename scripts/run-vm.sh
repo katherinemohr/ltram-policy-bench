@@ -55,6 +55,9 @@ qemu-system-x86_64 \
   \
   -nographic \
   -serial mon:stdio \
-  -no-reboot \
-  # add these if you wish to debug with gdb
-  # -s -S
+  -no-reboot # -s -S
+
+if [[ $INTERACTIVE -eq 0 ]]; then
+  # also try to plot the monitoring graphs
+  python3 $WORKLOADS/monitoring/meminfo_plot.py $WORKLOAD
+fi
