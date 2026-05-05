@@ -11,6 +11,7 @@ collect() {
     echo "ts_s,anon_kb,buffers_kb,pagetables_kb,cache_kb,mapped_kb,slab_unreclaimable_kb,kernel_stack_kb,vmalloc_kb,shmem_kb,anon_hugepages_kb"
     trap 'rm -f "$PIDFILE"; exit 0' TERM INT
     while true; do
+        export TS="$EPOCHREALTIME"
         awk -F': ' '
         /^AnonPages/     { anon=$2 }
         /^Buffers/       { buf=$2 }
@@ -25,7 +26,7 @@ collect() {
         END { printf "%s,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n",
               ENVIRON["TS"], anon+0, buf+0, pt+0, cache+0, mapped+0,
               sun+0, ks+0, vm+0, shmem+0, ahp+0 }
-        ' /proc/meminfo TS="$(date +%s)"
+        ' /proc/meminfo
         sleep "$INTERVAL"
     done
 }
