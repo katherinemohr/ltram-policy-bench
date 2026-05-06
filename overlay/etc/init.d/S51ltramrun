@@ -33,6 +33,7 @@ start_run() {
 
     # Start monitoring
     sh /mnt/workloads/monitoring/meminfo_log.sh > /mnt/results/meminfo_$1.txt &
+    sh /mnt/workloads/monitoring/smaps_log.sh $$ > /mnt/results/smaps_$1.txt &
 }
 
 run_workload() {
@@ -56,7 +57,10 @@ matmul() {
     echo "Starting Matrix Multiplication workload..."
 
     # numactl --membind=0 forces all allocations to Node 0 (DRAM)
-    numactl --cpunodebind=0 --membind=0 /mnt/workloads/matmul/matrix_multiply > /mnt/results/matrix-output.txt
+    numactl --cpunodebind=0 --membind=0 /mnt/workloads/matmul/matrix_multiply > /mnt/results/matrix-output.txt &
+    WORKLOAD_PID=$!
+    echo "$WORKLOAD_PID" > /mnt/results/workload.pid
+    wait "$WORKLOAD_PID"
 
     echo "Matrix Multiplication complete."
 }
@@ -66,7 +70,10 @@ gapbs_pagerank() {
 
     # -g 20 generates a Kronecker graph with 2^20 vertices
     # numactl --membind=0 forces all allocations to Node 0 (DRAM)
-    numactl --cpunodebind=0 --membind=0 /mnt/workloads/pr -g 20 > /mnt/results/pr-output.txt 2>&1
+    numactl --cpunodebind=0 --membind=0 /mnt/workloads/pr -g 20 > /mnt/results/pr-output.txt 2>&1 &
+    WORKLOAD_PID=$!
+    echo "$WORKLOAD_PID" > /mnt/results/workload.pid
+    wait "$WORKLOAD_PID"
 
     echo "PageRank complete."
 }
@@ -77,8 +84,11 @@ redis() {
     ip link set lo up
 
     echo "Starting Redis server on Node 0..."
-    numactl --cpunodebind=0 --membind=0 redis-server --save "" --daemonize yes
+    numactl --cpunodebind=0 --membind=0 redis-server --save "" --daemonize yes --pidfile /mnt/results/redis.pid
     sleep 2
+
+    WORKLOAD_PID=$(cat /mnt/results/redis.pid)
+    echo "$WORKLOAD_PID" > /mnt/results/workload.pid
 
     WORKLOAD_PATH="/mnt/workloads/YCSB-C/workloads/workloadmini.spec"
 
@@ -101,6 +111,7 @@ end_run() {
 
     # End monitoring
     sh /mnt/workloads/monitoring/meminfo_log.sh --end /mnt/results/meminfo_$1.txt > /mnt/results/meminfo_summary_$1.txt
+    sh /mnt/workloads/monitoring/smaps_log.sh --end /mnt/results/smaps_$1.txt > /mnt/results/smaps_summary_$1.txt
 
     # Your custom debugfs counters (once you've added them to the kernel)
     cat /sys/kernel/debug/ltram/stats > /mnt/results/ltram-stats.txt 2>/dev/null || true
