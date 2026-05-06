@@ -33,14 +33,35 @@ INPUTS="${BASE_DIR}/inputs"
 
 mkdir -p $RESULTS
 
-qemu-system-x86_64 \
+# === Host NUMA pinning ===
+# Active (Configuration A): pin everything to host node 0.
+# Both guest tiers (Node 0 = DRAM, Node 1 = LtRAM) are backed by the same
+# host socket, so there is no real latency asymmetry between them — only
+# the SLIT distance=20 hint exposed to the guest kernel. Clean baseline
+# for policy/correctness work.
+NUMACTL="numactl --cpunodebind=0 --membind=0"
+M0_HOST_OPTS=""
+M1_HOST_OPTS=""
+
+# Configuration B (uncomment when policy validation is done, and comment
+# out Configuration A above):
+# vCPUs stay on host node 0, m0 is bound to host node 0 (local), m1 is
+# bound to host node 1 (remote). Accesses to the guest's LtRAM tier now
+# incur real cross-socket DRAM latency. Useful for memory-sensitivity
+# sweeps. Do NOT combine with --membind=0 — that would fight the
+# per-backend host-nodes pinning.
+# NUMACTL="numactl --cpunodebind=0"
+# M0_HOST_OPTS=",host-nodes=0,policy=bind"
+# M1_HOST_OPTS=",host-nodes=1,policy=bind"
+
+$NUMACTL qemu-system-x86_64 \
   -enable-kvm \
   -cpu host \
   -smp 4 \
   -m 8G \
   \
-  -object memory-backend-ram,id=m0,size=7936M \
-  -object memory-backend-ram,id=m1,size=256M \
+  -object memory-backend-ram,id=m0,size=7936M${M0_HOST_OPTS} \
+  -object memory-backend-ram,id=m1,size=256M${M1_HOST_OPTS} \
   -numa node,nodeid=0,memdev=m0,cpus=0-3 \
   -numa node,nodeid=1,memdev=m1 \
   -numa dist,src=0,dst=1,val=20 \
