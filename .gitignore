@@ -1,5 +1,7 @@
 results/
 install/
+# don't save the generated graphs yet
+*.png
 
 # Default C Project .gitignore -----------
 # Object files
