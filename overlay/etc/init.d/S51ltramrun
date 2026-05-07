@@ -1,42 +1,74 @@
 #!/bin/sh
 
 INTERACTIVE=0
+HIST=0
+RUN_NAME=""
+RUN_DIR=""
+SWEEP_PID=""
 
 detect_interactive() {
-    # Check kernel command line for interactive=1
     if grep -q "interactive=1" /proc/cmdline; then
         echo "Interactive mode detected: skipping workload and shutdown."
         INTERACTIVE=1
     fi
 }
 
-start_run() {
-    mkdir -p /mnt/workloads
-    mkdir -p /mnt/results
-    mkdir -p /mnt/inputs
+detect_hist() {
+    if grep -q "ltram_hist=1" /proc/cmdline; then
+        echo "Histogram mode: dirty_sweep will run alongside the workload."
+        HIST=1
+    fi
+}
 
-    # Mount the shared directories from the host
+resolve_run_dir() {
+    RUN_NAME=$(grep -o 'ltram_run=[^ ]*' /proc/cmdline | cut -d= -f2)
+    if [ -z "$RUN_NAME" ]; then
+        RUN_NAME="default_$(date +%s)"
+    fi
+    RUN_DIR="/mnt/results/runs/$RUN_NAME"
+    mkdir -p "$RUN_DIR"
+    echo "Run dir: $RUN_DIR"
+}
+
+start_dirty_sweep() {
+    # $1 = target pid
+    [ "$HIST" -eq 1 ] || return 0
+    local target_pid=$1
+    /mnt/workloads/monitoring/dirty_sweep "$target_pid" \
+        "$RUN_DIR/dirty_sweep.csv" 100 2> "$RUN_DIR/dirty_sweep.log" &
+    SWEEP_PID=$!
+    echo "[hist] dirty_sweep pid=$SWEEP_PID, target pid=$target_pid"
+}
+
+stop_dirty_sweep() {
+    [ "$HIST" -eq 1 ] || return 0
+    if [ -n "$SWEEP_PID" ]; then
+        kill "$SWEEP_PID" 2>/dev/null
+        wait "$SWEEP_PID" 2>/dev/null
+        SWEEP_PID=""
+        echo "[hist] dirty_sweep stopped"
+    fi
+}
+
+start_run() {
+    mkdir -p /mnt/workloads /mnt/results /mnt/inputs
+
     mount -t 9p -o trans=virtio workloads /mnt/workloads
     mount -t 9p -o trans=virtio results /mnt/results
     mount -t 9p -o trans=virtio inputs /mnt/inputs
 
-    # Verify NUMA topology was picked up correctly
-    numactl --hardware > /mnt/results/numa-topology.txt
+    resolve_run_dir
 
-    # Enable NUMA balancing
-    # echo 1 > /proc/sys/kernel/numa_balancing
-
-    # Snapshot vmstat before workload
-    cp /proc/vmstat /mnt/results/vmstat-before.txt
+    numactl --hardware > "$RUN_DIR/numa-topology.txt"
+    cp /proc/cmdline "$RUN_DIR/cmdline.txt"
+    cp /proc/vmstat "$RUN_DIR/vmstat-before.txt"
 
     echo 1 > /proc/sys/vm/overcommit_memory
 
-    # Start monitoring
-    sh /mnt/workloads/monitoring/meminfo_log.sh > /mnt/results/meminfo_$1.txt &
+    sh /mnt/workloads/monitoring/meminfo_log.sh > "$RUN_DIR/meminfo.csv" &
 }
 
 run_workload() {
-    # If we're in interactive mode, skip running any workload
     if [ "$INTERACTIVE" -eq 1 ]; then
         echo "Interactive mode: not running any workload."
         return 0
@@ -53,79 +85,114 @@ run_workload() {
 }
 
 matmul() {
-    echo "Starting Matrix Multiplication workload..."
-
-    # numactl --membind=0 forces all allocations to Node 0 (DRAM)
-    numactl --cpunodebind=0 --membind=0 /mnt/workloads/matmul/matrix_multiply > /mnt/results/matrix-output.txt
-
+    # Allow iteration count override via kernel cmdline (LTRAM_MATMUL_ITERS).
+    # Default is the binary's compiled-in ITERS=10.
+    local mm_iters=$(grep -o 'ltram_matmul_iters=[^ ]*' /proc/cmdline | cut -d= -f2)
+    echo "Starting Matrix Multiplication workload (iters=${mm_iters:-default})..."
+    numactl --cpunodebind=0 --membind=0 /mnt/workloads/matmul/matrix_multiply $mm_iters \
+        > "$RUN_DIR/workload-stdout.txt" 2>&1 &
+    local pid=$!
+    # Give numactl a moment to exec into matrix_multiply before dirty_sweep
+    # snapshots /proc/<pid>/maps. Otherwise dirty_sweep latches onto numactl's
+    # ~36 dynamic-link VMAs, which get wiped at exec, and the per-page tracking
+    # silently produces an empty CSV. (See exec race in repo notes.)
+    sleep 0.5
+    start_dirty_sweep "$pid"
+    wait "$pid"
+    stop_dirty_sweep
     echo "Matrix Multiplication complete."
 }
 
 gapbs_pagerank() {
-    echo "Running GAPbs PageRank..."
-
-    # -g 20 generates a Kronecker graph with 2^20 vertices
-    # numactl --membind=0 forces all allocations to Node 0 (DRAM)
-    numactl --cpunodebind=0 --membind=0 /mnt/workloads/pr -g 20 > /mnt/results/pr-output.txt 2>&1
-
+    # GAPbs flags overridable via kernel cmdline:
+    #   ltram_gapbs_graph (default 20 = 2^20 vertices)
+    #   ltram_gapbs_trials (number of independent trials, default 16)
+    #   ltram_gapbs_iters  (PageRank iterations per trial, default ~implementation default)
+    local g=$(grep -o 'ltram_gapbs_graph=[^ ]*'  /proc/cmdline | cut -d= -f2)
+    local n=$(grep -o 'ltram_gapbs_trials=[^ ]*' /proc/cmdline | cut -d= -f2)
+    local i=$(grep -o 'ltram_gapbs_iters=[^ ]*'  /proc/cmdline | cut -d= -f2)
+    g=${g:-20}
+    local args="-g $g"
+    [ -n "$n" ] && args="$args -n $n"
+    [ -n "$i" ] && args="$args -i $i"
+    echo "Running GAPbs PageRank with args: $args"
+    numactl --cpunodebind=0 --membind=0 /mnt/workloads/pr $args \
+        > "$RUN_DIR/workload-stdout.txt" 2>&1 &
+    local pid=$!
+    # Same exec race as matmul: wait for numactl → /mnt/workloads/pr.
+    sleep 0.5
+    start_dirty_sweep "$pid"
+    wait "$pid"
+    stop_dirty_sweep
     echo "PageRank complete."
 }
 
 redis() {
     export LD_LIBRARY_PATH=/mnt/workloads/YCSB-C/install:$LD_LIBRARY_PATH
-
     ip link set lo up
 
     echo "Starting Redis server on Node 0..."
     numactl --cpunodebind=0 --membind=0 redis-server --save "" --daemonize yes
     sleep 2
+    local redis_pid=$(pidof redis-server)
+    echo "redis-server pid=$redis_pid"
 
-    WORKLOAD_PATH="/mnt/workloads/YCSB-C/workloads/workloadmini.spec"
+    start_dirty_sweep "$redis_pid"
+
+    # Spec file selection: read ltram_redis_spec from the kernel command line,
+    # default to workloadmini.spec for backward compatibility. The host can
+    # set LTRAM_REDIS_SPEC=workloadlong.spec (or any other spec) to swap in
+    # a different operationcount / mix without touching this script.
+    SPEC=$(grep -o 'ltram_redis_spec=[^ ]*' /proc/cmdline | cut -d= -f2)
+    SPEC=${SPEC:-workloadmini.spec}
+    WORKLOAD_PATH="/mnt/workloads/YCSB-C/workloads/$SPEC"
+    echo "Using YCSB workload spec: $SPEC"
 
     echo "Phase 1: Loading data into Redis..."
-    /mnt/workloads/YCSB-C/ycsbc -db redis -P "$WORKLOAD_PATH" > /mnt/results/ycsb-load.txt 2>&1
+    /mnt/workloads/YCSB-C/ycsbc -db redis -P "$WORKLOAD_PATH" \
+        > "$RUN_DIR/ycsb-load.txt" 2>&1
 
     echo "Phase 2: Running operations..."
-    /mnt/workloads/YCSB-C/ycsbc -db redis -P "$WORKLOAD_PATH" > /mnt/results/ycsb-run.txt 2>&1
+    /mnt/workloads/YCSB-C/ycsbc -db redis -P "$WORKLOAD_PATH" \
+        > "$RUN_DIR/ycsb-run.txt" 2>&1
+
+    stop_dirty_sweep
 }
 
 end_run() {
-    # Snapshot vmstat after
-    cp /proc/vmstat /mnt/results/vmstat-after.txt
+    cp /proc/vmstat "$RUN_DIR/vmstat-after.txt"
 
-    # Per-node memory breakdown
     for node in 0 1; do
-      cat /sys/devices/system/node/node${node}/meminfo \
-        > /mnt/results/node${node}-meminfo.txt
+        cat /sys/devices/system/node/node${node}/meminfo \
+            > "$RUN_DIR/node${node}-meminfo.txt"
     done
 
-    # End monitoring
-    sh /mnt/workloads/monitoring/meminfo_log.sh --end /mnt/results/meminfo_$1.txt > /mnt/results/meminfo_summary_$1.txt
+    sh /mnt/workloads/monitoring/meminfo_log.sh --end "$RUN_DIR/meminfo.csv" \
+        > "$RUN_DIR/meminfo_summary.txt"
 
-    # Your custom debugfs counters (once you've added them to the kernel)
-    cat /sys/kernel/debug/ltram/stats > /mnt/results/ltram-stats.txt 2>/dev/null || true
+    cat /sys/kernel/debug/ltram/stats > "$RUN_DIR/ltram-stats.txt" 2>/dev/null || true
 
-    # In interactive mode, do not power off the VM
     if [ "$INTERACTIVE" -eq 1 ]; then
         echo "Interactive mode: leaving VM running."
         return 0
     fi
 
-    # Done — power off
     echo "Workload complete. Powering off..."
     poweroff -f
 }
 
-# Extract the value of ltram_workload from /proc/cmdline
 SELECTED=$(grep -o 'ltram_workload=[^ ]*' /proc/cmdline | cut -d= -f2)
 
 case "$1" in
-	start)
+    start)
         detect_interactive
-        start_run $SELECTED
+        detect_hist
+        start_run
         run_workload $SELECTED
-        end_run $SELECTED;;
-	*)
-		echo "Usage: $0 {start}"
-		exit 1
+        end_run
+        ;;
+    *)
+        echo "Usage: $0 {start}"
+        exit 1
+        ;;
 esac

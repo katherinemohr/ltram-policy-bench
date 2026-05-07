@@ -22,7 +22,7 @@
 #include <time.h>
 #include <sys/mman.h>
 
-#define N 1024
+#define N 7168
 #define ITERS 10
 
 static void fill_random(float *x, size_t n, uint64_t seed)
@@ -90,7 +90,12 @@ void numa_mm_repeat(int iters)
     numa_free(result, bytes);
 }
 
-int main() {
-    numa_mm_repeat(ITERS);
+int main(int argc, char *argv[]) {
+    int iters = ITERS;
+    if (argc > 1) {
+        int n = atoi(argv[1]);
+        if (n > 0) iters = n;
+    }
+    numa_mm_repeat(iters);
     return 0;
 }
