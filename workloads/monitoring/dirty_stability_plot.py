@@ -21,68 +21,68 @@ Usage: dirty_stability_plot.py <workload> <run_name>
 """
 
 import sys
-import re
 from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 
+sys.path.insert(0, str(Path(__file__).parent))
+from _phase_data import (
+    load_stability, load_pages, parse_args_phase,
+    has_load, classify_pages, _load_stability_one,
+)
+
 TOP_DIR = Path(__file__).parents[2]
 RESULTS_DIR = TOP_DIR / "results"
 
-workload = sys.argv[1]
-run_name = sys.argv[2]
+workload, run_name, phase = parse_args_phase(sys.argv)
 out_dir = RESULTS_DIR / "runs" / run_name
-stability_csv = out_dir / "dirty_sweep_stability.csv"
 
-with open(stability_csv) as f:
-    header_line = f.readline().strip()
-m = re.search(r"total_sweeps=(\d+)\s+total_seconds=([\d.]+)\s+interval_ms=(\d+)", header_line)
-total_sweeps = int(m.group(1))
-total_seconds = float(m.group(2))
-interval_ms = int(m.group(3))
-sec_per_sweep = interval_ms / 1000.0
-
-df = pd.read_csv(stability_csv, comment="#")
-# Columns: stability_period_sweeps, count[, final_count]
-lengths = df["stability_period_sweeps"].values
-counts  = df["count"].values
-final_counts = (df["final_count"].values if "final_count" in df.columns
-                else np.zeros_like(counts))
-intermediate_counts = counts - final_counts
-total_periods = int(counts.sum())
+data = load_stability(out_dir, phase)
+total_sweeps        = data["total_sweeps"]
+total_seconds       = data["total_seconds"]
+interval_ms         = data["interval_ms"]
+sec_per_sweep       = data["sec_per_sweep"]
+lengths             = data["L"]
+counts              = data["C"]
+final_counts        = data["F"]
+intermediate_counts = data["I"]
+total_periods       = int(counts.sum())
+phase_label         = data["label"]
 
 # Class 1 (static-RO) page count, read from the per-page sweep CSV. Class 1
 # pages each contribute one stability period of length ≈ total_sweeps to
 # `stability_hist`, but they are NOT migrated by a threshold-based policy —
 # the kernel places them on LtRAM at fault time. So we should exclude them
 # from the cost (migrations) but keep their utility contribution.
-sweep_csv = out_dir / "dirty_sweep.csv"
 tier1_pages = 0
 tier1_size_mb = 0.0
 total_pages = None
-final_stabs_sweeps = None  # per-page final-epoch length, for the LtRAM-occupancy curve
-if sweep_csv.exists():
-    df_pages = pd.read_csv(sweep_csv, comment="#")
+max_stabs_sweeps = None    # per-page LONGEST clean epoch, for the "ever-on-LtRAM" curve
+try:
+    df_pages = load_pages(out_dir, phase)
     df_pages["writable"] = df_pages["vma_perms"].str[1] == "w"
     tier1_pages = int((~df_pages["writable"]).sum())
     tier1_size_mb = tier1_pages * 4 / 1024
     tier2_pages = int(df_pages["writable"].sum())
     tier2_size_mb = tier2_pages * 4 / 1024
     total_pages = len(df_pages)
-    if "final_stab_period" in df_pages.columns:
-        # For Class 1 pages (never written), final_stab_period == total_sweeps
-        # already from how dirty_sweep finalizes. For writable pages, it's
-        # the time since last write. Either way, "page on LtRAM at end of
-        # run iff final_stab_period > T".
-        final_stabs_sweeps = df_pages["final_stab_period"].astype(int).values
+    # Use max_stab_period (LONGEST clean epoch over the run) rather than
+    # final_stab_period (last clean epoch only). max_stab > T → page was
+    # migrated to LtRAM at some point during the run; final_stab > T only
+    # counts pages still on LtRAM at end-of-run, undercounting pages that
+    # were migrated, then evicted. For the "% pages ever on LtRAM" curve
+    # max_stab is the correct semantic.
+    if "max_stab_period" in df_pages.columns:
+        max_stabs_sweeps = df_pages["max_stab_period"].astype(int).values
     print(f"Class 1 (static-RO, !VM_WRITE): {tier1_pages} pages "
           f"(~{tier1_size_mb:.1f} MB) — placed at fault time, costs {tier1_pages} "
           f"LtRAM writes one-shot (no speculation, no CoW)")
     print(f"Class 2 (writable, LRW-managed): {tier2_pages} pages "
           f"(~{tier2_size_mb:.1f} MB) — threshold policy decides per stability period")
-else:
-    print(f"WARNING: dirty_sweep.csv not found, can't separate Class 1 from Class 2")
+except FileNotFoundError:
+    print(f"WARNING: per-page CSV for phase={phase} not found, "
+          f"can't separate Class 1 from Class 2")
 
 # Convert sweep counts to seconds for human-readable axes
 length_secs = lengths * sec_per_sweep
@@ -106,7 +106,10 @@ print(f"  total RO-time  = {total_sweep_time} sweeps × pages "
 # At sweep granularity bars are too thin to read. Bucket into integer-second
 # bins so the multi-modal structure is visible.
 BIN_WIDTH_SEC = 1.0
-n_bins = int(np.ceil(total_seconds / BIN_WIDTH_SEC)) + 1
+# Cap n_bins at actual data extent (+5%) — see cluster_plot for rationale.
+# Previously n_bins=ceil(total_seconds) padded thousands of empty trailing
+# bins and made rendering 12+ minutes per cluster figure for long runs.
+n_bins = int(np.ceil(length_secs.max() * 1.05 / BIN_WIDTH_SEC)) + 1 if length_secs.size else 1
 bin_idx = np.floor(length_secs / BIN_WIDTH_SEC).astype(int)
 bin_idx = np.clip(bin_idx, 0, n_bins - 1)
 binned_intermediate = np.zeros(n_bins, dtype=np.int64)
@@ -131,18 +134,29 @@ ax.set_title(
     f"(includes static-RO Class 1), {total_seconds:.1f}s total run"
 )
 ax.grid(True, which="both", alpha=0.3)
+ax.set_xlim(0, float(length_secs.max()) * 1.05 if length_secs.size else None)
 plt.tight_layout()
-plt.savefig(out_dir / "dirty_stability_hist.png", dpi=120, bbox_inches="tight")
+plt.savefig(out_dir / f"dirty_stability_hist_{phase}.png", dpi=120, bbox_inches="tight")
 plt.close()
 
-# Plot 1b: stacked histogram, intermediate vs final epoch
+# Plot 1b: stacked histogram, intermediate vs final epoch.
+# Color convention (blue = clean, red = dirty, lighter = more active):
+#   light blue  → INTERMEDIATE (active, between writes)
+#   dark blue   → FINAL        (settled, no more writes coming)
 fig, ax = plt.subplots(figsize=(11, 6))
 ax.bar(bin_centers, binned_intermediate,
-       width=BIN_WIDTH_SEC * 0.9, color="#0072B2",
+       width=BIN_WIDTH_SEC * 0.9, color="#56B4E9",
        edgecolor="black", linewidth=0.2,
        label="intermediate (terminated by a write)")
-ax.bar(bin_centers, binned_final, bottom=binned_intermediate,
-       width=BIN_WIDTH_SEC * 0.9, color="#D55E00",
+# IMPORTANT: clamp bottom to a tiny positive value. On log-y scale,
+# matplotlib silently DROPS bars whose bottom=0 (because log(0) is
+# undefined), so for bins where binned_intermediate==0 the final bar
+# would be invisible. Clamping to 0.5 puts the bar bottom just below the
+# log-y axis floor (which is at 1 since counts are integers ≥ 1) — same
+# visual result as bottom=0 would give if matplotlib handled it correctly.
+ax.bar(bin_centers, binned_final,
+       bottom=np.maximum(binned_intermediate, 0.5),
+       width=BIN_WIDTH_SEC * 0.9, color="#0072B2",
        edgecolor="black", linewidth=0.2,
        label="final (active at end of run)")
 ax.set_yscale("log")
@@ -151,12 +165,13 @@ ax.set_ylabel("number of stability periods (log)")
 ax.set_title(
     f"{workload} — stability-period histogram, intermediate vs final\n"
     f"{total_periods} total periods, {total_seconds:.1f}s run "
-    f"(orange = page's last clean window, blue = ended by subsequent write)"
+    f"(dark blue = page's last clean window, light blue = ended by subsequent write)"
 )
 ax.legend(loc="upper right", fontsize=10)
 ax.grid(True, which="both", alpha=0.3)
+ax.set_xlim(0, float(length_secs.max()) * 1.05 if length_secs.size else None)
 plt.tight_layout()
-plt.savefig(out_dir / "dirty_stability_hist_final.png", dpi=120, bbox_inches="tight")
+plt.savefig(out_dir / f"dirty_stability_hist_final_{phase}.png", dpi=120, bbox_inches="tight")
 plt.close()
 
 # ---------------------------------------------------------------------------
@@ -216,7 +231,7 @@ ax.set_ylim(0, 1.02)
 ax.grid(True, which="both", alpha=0.3)
 annotate_thresholds(ax, cum_counts, total_periods)
 plt.tight_layout()
-plt.savefig(out_dir / "dirty_stability_cdf.png", dpi=120, bbox_inches="tight")
+plt.savefig(out_dir / f"dirty_stability_cdf_{phase}.png", dpi=120, bbox_inches="tight")
 plt.close()
 
 # Plot 2b: same CDF with intermediate vs final breakdown overlaid
@@ -229,20 +244,20 @@ if total_intermediate > 0:
             label=f"intermediate only (n={total_intermediate})")
 if total_final > 0:
     ax.step(sorted_lengths * sec_per_sweep, cdf_final, where="post",
-            color="#D55E00", linewidth=1.5, linestyle=":",
+            color="#0072B2", linewidth=1.5, linestyle=":",
             label=f"final only (n={total_final})")
 ax.legend(loc="lower right", fontsize=9)
 ax.set_xlabel("stability period length (seconds)")
 ax.set_ylabel("cumulative fraction of periods with length ≤ x")
 ax.set_title(
     f"{workload} — stability period CDF, intermediate vs final\n"
-    f"orange = page's last clean window, blue dashed = ended by subsequent write"
+    f"dark blue = page's last clean window, light blue dashed = ended by subsequent write"
 )
 ax.set_ylim(0, 1.02)
 ax.grid(True, which="both", alpha=0.3)
 annotate_thresholds(ax, cum_counts, total_periods)
 plt.tight_layout()
-plt.savefig(out_dir / "dirty_stability_cdf_final.png", dpi=120, bbox_inches="tight")
+plt.savefig(out_dir / f"dirty_stability_cdf_final_{phase}.png", dpi=120, bbox_inches="tight")
 plt.close()
 
 # ---------------------------------------------------------------------------
@@ -286,26 +301,33 @@ def weighted_kmeans_1d(values, weights, K, max_iter=200, n_init=10, seed=0):
     rank[order] = np.arange(len(order))
     return best_centers[order], rank[best_labels]
 
-# Keep only positive-length entries for clustering.
+# Cluster on 1-second-binned data so the threshold T lands on the same 1s
+# grid as dirty_stability_cluster_plot.py (otherwise the costben_normalized
+# figure shows a slightly-different T from the cluster histogram, which is
+# confusing — the two should always agree for the same K).
 _pos = lengths > 0
-log_L = np.log(lengths[_pos].astype(float))
-weights_for_km = counts[_pos].astype(float)
+sweeps_per_sec = int(round(1.0 / sec_per_sweep))   # 10 at 100ms cadence
+L_sec_int = np.maximum(1, np.round(lengths[_pos] * sec_per_sweep)).astype(int)
+unique_secs, inverse = np.unique(L_sec_int, return_inverse=True)
+C_per_sec_bin = np.bincount(inverse, weights=counts[_pos]).astype(np.float64)
+log_L_secs = np.log(unique_secs.astype(float))
 
 cluster_results = []  # list of dicts: K, T_secs, T_sweeps, centers_secs
 for K in [2, 3, 4]:
-    if len(log_L) < K:
+    if len(unique_secs) < K:
         continue
-    centers_log, labels_km = weighted_kmeans_1d(log_L, weights_for_km, K)
-    bottom_mask = labels_km < (K - 1)
+    centers_log, bin_labels = weighted_kmeans_1d(log_L_secs, C_per_sec_bin, K)
+    bottom_mask = bin_labels < (K - 1)
     if bottom_mask.any():
-        T_sweeps_K = int(lengths[_pos][bottom_mask].max()) + 1
+        T_sec = int(unique_secs[bottom_mask].max()) + 1
     else:
-        T_sweeps_K = 0
+        T_sec = 0
+    T_sweeps_K = T_sec * sweeps_per_sec
     cluster_results.append({
         "K": K,
         "T_sweeps": T_sweeps_K,
-        "T_secs":   T_sweeps_K * sec_per_sweep,
-        "centers_secs": (np.exp(centers_log) * sec_per_sweep).tolist(),
+        "T_secs":   float(T_sec),
+        "centers_secs": np.exp(centers_log).tolist(),
     })
 
 # ---------------------------------------------------------------------------
@@ -393,52 +415,11 @@ cap_idx = find_first_le(utility_ratio, 1.0)
 T_cap = thresh_secs[cap_idx] if cap_idx is not None else None
 T_opt = T_cap
 
-# ---------------------------------------------------------------------------
-# Plot 3a: original two-panel cost/benefit, absolute units
-# ---------------------------------------------------------------------------
-fig, (ax_cost, ax_benefit) = plt.subplots(
-    2, 1, figsize=(11, 8), sharex=True,
-    gridspec_kw={"height_ratios": [1, 1]},
-)
-
-ax_cost.plot(thresh_secs, migrations, color="#0072B2", linewidth=2,
-             marker="o", markersize=3, label="total LtRAM writes (Class 1 + Class 2)")
-ax_cost.axhline(tier1_writes, color="green", linestyle=":", linewidth=1.5,
-                label=f"Class 1 fixed cost = {int(tier1_writes)} writes (one-time, at fault)")
-ax_cost.set_yscale("log")
-ax_cost.set_ylabel("LtRAM writes per run (log)")
-ax_cost.set_title(
-    f"{workload} — migration cost/benefit vs threshold\n"
-    f"Class 1 (static-RO): {tier1_pages} pages, {tier1_size_mb:.1f} MB — "
-    f"placed at fault time, costs {int(tier1_writes)} LtRAM writes (one-shot)\n"
-    f"top: total LtRAM writes  |  bottom: total LtRAM utilization (Class 1 + Class 2)"
-)
-ax_cost.legend(loc="upper right", fontsize=9)
-ax_cost.grid(True, which="both", alpha=0.3)
-
-ax_benefit.plot(thresh_secs, benefit_page_seconds, color="#D55E00", linewidth=2,
-                marker="s", markersize=3, label="combined utility")
-# Show Class 1's standalone contribution as a horizontal baseline. At any
-# threshold, Class 1 alone provides this much utility (zero-cost, since
-# the kernel places these pages on LtRAM at fault time).
-tier1_pageseconds_baseline = tier1_pages * total_seconds
-ax_benefit.axhline(
-    tier1_pageseconds_baseline, color="green", linestyle=":", linewidth=1.5,
-    label=f"Class 1 alone (free): {tier1_pageseconds_baseline:.2e} page-sec"
-)
-ax_benefit.axhline(
-    ltram_capacity_pageseconds, color="gray", linestyle="--", linewidth=1.5,
-    label=f"LtRAM capacity × run time = {ltram_capacity_pageseconds:.2e} "
-          f"page-sec ({LTRAM_PAGES} pages × {total_seconds:.0f}s)"
-)
-ax_benefit.set_xlabel("migration threshold (seconds of clean before migrating)")
-ax_benefit.set_ylabel("total LtRAM utilization (page-seconds)")
-ax_benefit.legend(loc="upper right", fontsize=9)
-ax_benefit.grid(True, which="both", alpha=0.3)
-
-plt.tight_layout()
-plt.savefig(out_dir / "dirty_stability_costben.png", dpi=120, bbox_inches="tight")
-plt.close()
+# Plot 3a (the older 2-panel absolute-units costben) was replaced by a new
+# 3-panel costben that mirrors costben_normalized's layout but uses
+# page-seconds (integrated LtRAM utilization) instead of page-count
+# (snapshot) on the top panel. The new plot is generated AFTER normalized
+# so it can reuse the same total_5y_pct, eff_ratio, etc.
 
 # ---------------------------------------------------------------------------
 # Plot 3b: normalized combined view, single panel
@@ -464,9 +445,11 @@ TAB_RED    = "#d62728"
 # --- Top metric: % of pages on LtRAM (final_stab > T) ---
 # Capacity-blind: counts every page that would qualify, even if more pages
 # qualify than fit in LtRAM. The ceiling line shows where capacity binds.
-if final_stabs_sweeps is not None and total_pages is not None and total_pages > 0:
+if max_stabs_sweeps is not None and total_pages is not None and total_pages > 0:
+    # "Pages ever on LtRAM at threshold T": page was migrated at least once
+    # during the run iff its longest clean epoch (max_stab_period) > T.
     pages_on_ltram_pct = np.array([
-        100.0 * (final_stabs_sweeps > T).sum() / total_pages
+        100.0 * (max_stabs_sweeps > T).sum() / total_pages
         for T in thresholds
     ])
     capacity_ceiling_pct = 100.0 * LTRAM_PAGES / total_pages
@@ -513,15 +496,15 @@ T_optimal    = None
 opt_pages    = None
 opt_migrations = None
 
-fig, (ax_util, ax_life) = plt.subplots(
-    2, 1, figsize=(13, 9), sharex=True,
-    gridspec_kw={"height_ratios": [1, 1]},
+fig, (ax_util, ax_life, ax_eff) = plt.subplots(
+    3, 1, figsize=(13, 12), sharex=True,
+    gridspec_kw={"height_ratios": [1, 1, 1]},
 )
 
 # ---- Top: % of pages on LtRAM ----
 ax_util.plot(thresh_secs, pages_on_ltram_pct, color=TAB_BLUE, linewidth=2.5,
              marker="o", markersize=4,
-             label="% of pages with final epoch > T (LtRAM-eligible)")
+             label="% of pages with max stable epoch > T  (ever on LtRAM during run)")
 ax_util.axhline(capacity_ceiling_pct, color=TAB_BLUE, linestyle=":",
                 linewidth=1.8, alpha=0.7,
                 label=f"LtRAM capacity ceiling = {capacity_ceiling_pct:.1f}% "
@@ -531,7 +514,7 @@ if pages_on_ltram_pct.max() > capacity_ceiling_pct:
                     max(105, pages_on_ltram_pct.max() * 1.05),
                     color=TAB_RED, alpha=0.08,
                     label="capacity-limited (more pages want LtRAM than fit)")
-ax_util.set_ylabel("LtRAM-eligible pages\n(% of total workload pages)",
+ax_util.set_ylabel("Pages ever on LtRAM\n(% of total workload pages,\nmax_stab > T)",
                    fontsize=11)
 ax_util.set_title(
     f"{workload} — migration threshold decision\n"
@@ -544,29 +527,73 @@ ax_util.set_ylim(0, max(105, pages_on_ltram_pct.max() * 1.1))
 ax_util.legend(loc="upper right", fontsize=10)
 ax_util.grid(True, alpha=0.3)
 
-# ---- Bottom: % of NOR chip endurance consumed during this run, split ----
-# Convention: vermilion = FINAL (one-time placement), blue = INTERMEDIATE
-# (recurring during run). y-axis is % of TOTAL_ERASES (chip-level, perfect
-# wear leveling) — i.e. "this run consumes X% of the chip's lifetime budget".
-# Log scale because values can range from 0.001% (gapbs cold workload) up to
-# 100%+ (redis xlong burns through chip in one run at low T).
-final_endurance_pct = 100.0 * final_migs / TOTAL_ERASES
-inter_endurance_pct = 100.0 * inter_migs / TOTAL_ERASES
-total_endurance_pct = 100.0 * migrations / TOTAL_ERASES
-
-# Bottom panel: total % of NOR chip endurance consumed over a 5-year
-# deployment vs migration threshold. Single line, no split, no fill.
-# Y-axis auto-scales to the max value so all curves are visible regardless
-# of workload (matmul ≈0.001%, redis ≈17000% at low T).
+# ---- Bottom: % of NOR chip endurance consumed over a 5-year deployment ----
+# DEPLOYMENT-SCENARIO formula (replaces the older final/intermediate split,
+# which was overly optimistic — it counted FINAL-at-end-of-run epochs as
+# one-time when in steady-state deployment they actually recur every cycle).
+#
+# Model: app boots once → load phase happens once (cold-start, all migrations
+# counted) → run phase repeats N = HORIZON / run_seconds times in steady
+# state. Pages that we know stay read-only across cycles — Class 1
+# (non-writable, kernel can't write), Class 2 (writable, no events anywhere),
+# Class 3 (writable, events in load only) — are migrated once at cold-start
+# and don't re-migrate. Everything else (Class 4: writable + has run events)
+# is treated as recurring.
+#
+#   total_5y_writes(T) = load_total_migs(T)                          [cold-start, optional]
+#                      + (run_total_migs(T) − non_recur_pages) × N   [recurring writable]
+#
+# load_total_migs is added only for phase=full (or when load CSV exists);
+# phase=run shows the steady-state-only curve, ignoring cold-start.
+#
+# This avoids the old formula's failure mode: the OBSERVED final/inter split
+# was an artifact of where we stopped observing, not a real distinction in
+# the workload. In a deployment that runs run-phase forever, EVERY epoch >T
+# (final or intermediate) is a recurring event.
 SECS_PER_YEAR = 365.25 * 86400
 HORIZON_SEC   = 5 * SECS_PER_YEAR
 
-total_5y_writes = final_migs + inter_migs * (HORIZON_SEC / total_seconds)
-total_5y_pct    = 100.0 * total_5y_writes / TOTAL_ERASES
+
+def _total_migs_curve(L_arr, C_arr, thresh):
+    out = np.zeros_like(thresh, dtype=float)
+    for i, T in enumerate(thresh):
+        out[i] = C_arr[L_arr > T].sum()
+    return out
+
+
+# Always load both phases independently (regardless of `phase` argv) — the
+# bottom panel is the deployment view and combines them per-phase.
+_run_stab_path = out_dir / "dirty_sweep_stability.csv"
+run_stab = _load_stability_one(_run_stab_path, "run only") if _run_stab_path.exists() else None
+load_stab = (_load_stability_one(out_dir / "dirty_sweep_load_stability.csv", "load only")
+             if has_load(out_dir) else None)
+
+pcat = classify_pages(out_dir)
+non_recur_pages = pcat["class1"] + pcat["class2"] + pcat["class3"]
+run_total_sweeps_pcat = pcat["run_total_sweeps"]
+non_recur_at_T = np.where(thresholds < run_total_sweeps_pcat, non_recur_pages, 0)
+
+if run_stab is not None:
+    run_total_migs_arr = _total_migs_curve(run_stab["L"], run_stab["C"], thresholds)
+else:
+    run_total_migs_arr = np.zeros_like(thresholds, dtype=float)
+recurring_at_T = np.maximum(run_total_migs_arr - non_recur_at_T, 0)
+N_repeats = HORIZON_SEC / run_stab["total_seconds"] if run_stab is not None else 0.0
+
+if phase == "full" and load_stab is not None:
+    load_total_migs_arr = _total_migs_curve(load_stab["L"], load_stab["C"], thresholds)
+    total_5y_writes = load_total_migs_arr + recurring_at_T * N_repeats
+    bottom_curve_label = ("total endurance, 5y deployment "
+                          "= cold-start + N·recurring")
+else:
+    total_5y_writes = recurring_at_T * N_repeats
+    bottom_curve_label = ("steady-state endurance, 5y "
+                          "= N·recurring (excludes cold-start)")
+total_5y_pct = 100.0 * total_5y_writes / TOTAL_ERASES
 
 ax_life.plot(thresh_secs, total_5y_pct, color=TAB_ORANGE,
              linewidth=2.5, marker="s", markersize=4,
-             label="total endurance consumed (5y deployment)")
+             label=bottom_curve_label)
 ax_life.set_ylim(0, max(110, total_5y_pct.max() * 1.1))
 ax_life.set_xlabel("migration threshold T (seconds of clean before migrating)",
                    fontsize=11)
@@ -593,10 +620,70 @@ for r in cluster_results:
     pages_pct, idx = _interp(pages_on_ltram_pct, Tsweeps)
     migs_at_T = migrations[idx]
     label = f"K={K}: T={Ts:.1f}s  ({int(migs_at_T):,} migs, {pages_pct:.0f}% pages)"
-    for ax in (ax_util, ax_life):
+    for ax in (ax_util, ax_life, ax_eff):
         ax.axvline(Ts, color=color, linewidth=2.2, alpha=0.85,
                    linestyle=(0, (5, 2 + K)),  # different dash pattern per K
                    label=label if ax is ax_life else None)
+
+# Endurance-budget crossover line: smallest T such that the 5-year endurance
+# curve is at or below 100% of TOTAL_ERASES. Most aggressive policy that
+# still fits within chip endurance — anything to the LEFT of this line burns
+# the chip in <5 years.
+under_budget = total_5y_pct <= 100.0
+if under_budget.any():
+    idx_budget = int(np.argmax(under_budget))   # first True (smallest T)
+    T_budget        = thresh_secs[idx_budget]
+    migs_at_budget  = int(migrations[idx_budget])
+    pages_at_budget = pages_on_ltram_pct[idx_budget]
+    end_at_budget   = total_5y_pct[idx_budget]
+    budget_label = (f"5y-endurance budget: T={T_budget:.1f}s  "
+                    f"({migs_at_budget:,} migs, "
+                    f"{pages_at_budget:.0f}% pages, "
+                    f"endurance={end_at_budget:.1f}%)")
+    for ax in (ax_util, ax_life, ax_eff):
+        ax.axvline(T_budget, color="red", linewidth=2.6, alpha=0.85,
+                   linestyle="-",
+                   label=budget_label if ax is ax_life else None)
+    print(f"  endurance-budget crossover (5y, ≤100%): "
+          f"T={T_budget:.2f}s  migs={migs_at_budget:,}  "
+          f"pages={pages_at_budget:.1f}%  endurance={end_at_budget:.2f}%")
+else:
+    print(f"  endurance-budget crossover: NEVER ≤100% in tested T range "
+          f"(workload exceeds budget at every T)")
+
+# Efficiency-optimal T: argmax of (utility / migration) where utility is
+# the LtRAM page-seconds bought, capped by LtRAM physical capacity. This
+# answers "which T maximizes the ratio of page-time-on-LtRAM purchased per
+# LtRAM cell write" — the policy's per-write ROI. The cap stops the metric
+# from running away to T=∞ (where on a Pareto tail the uncapped efficiency
+# would keep growing); the cap forces argmax to the knee where adding more
+# T no longer improves coverage but only reduces migration count.
+utility_capped_at_T = np.minimum(benefit_page_seconds, ltram_capacity_pageseconds)
+with np.errstate(invalid="ignore", divide="ignore"):
+    efficiency = np.where(migrations > 0, utility_capped_at_T / migrations, 0.0)
+# Restrict to T values that don't push capacity to zero (eviction would
+# kick in, breaking the LtRAM-coverage assumption). If pages_on_ltram_pct
+# drops to 0% before the argmax, that's a degenerate "no migration" case.
+valid_eff = (migrations > 0) & (pages_on_ltram_pct > 0)
+if valid_eff.any():
+    T_eff_idx = int(np.argmax(np.where(valid_eff, efficiency, -np.inf)))
+    T_eff           = thresh_secs[T_eff_idx]
+    migs_at_eff     = int(migrations[T_eff_idx])
+    pages_at_eff    = pages_on_ltram_pct[T_eff_idx]
+    eff_pageseconds = utility_capped_at_T[T_eff_idx]
+    end_at_eff      = total_5y_pct[T_eff_idx]
+    eff_label = (f"efficiency-optimal: T={T_eff:.1f}s  "
+                 f"({migs_at_eff:,} migs, "
+                 f"{pages_at_eff:.0f}% pages, "
+                 f"endurance={end_at_eff:.1f}%)")
+    for ax in (ax_util, ax_life, ax_eff):
+        ax.axvline(T_eff, color="darkorange", linewidth=2.6, alpha=0.85,
+                   linestyle="-",
+                   label=eff_label if ax is ax_life else None)
+    print(f"  efficiency-optimal T (max page-secs per migration): "
+          f"T={T_eff:.2f}s  migs={migs_at_eff:,}  "
+          f"pages={pages_at_eff:.1f}%  endurance={end_at_eff:.2f}%  "
+          f"({eff_pageseconds/migs_at_eff:.0f} page-sec/write)")
 
 # (Capacity-only T_optimal annotation deliberately dropped: for oversubscribed
 # workloads it produces a degenerate "refuse to migrate" answer. Cluster Ts
@@ -605,8 +692,169 @@ for r in cluster_results:
 # Re-draw legend on bottom panel with cluster Ts included
 ax_life.legend(loc="upper right", fontsize=9, framealpha=0.92)
 
+# === Panel 3: efficiency = (% pages on LtRAM) / (% NOR endurance over 5y) ===
+# A clean policy decision metric:
+#   "how many percent of pages does this T put on LtRAM, per 1% of chip
+#   endurance burned over a 5y deployment?"
+# Higher = better. argmax = the most efficient T (best LtRAM coverage per
+# unit endurance cost). When this peak is to the right of the endurance-
+# crossover red line, it gives a "comfortably-within-budget" recommendation.
+# When to the left, the budget binds and you should pick the red line.
+with np.errstate(invalid="ignore", divide="ignore"):
+    eff_ratio = np.where(total_5y_pct > 0,
+                         pages_on_ltram_pct / total_5y_pct,
+                         np.inf)
+# The full curve is plotted everywhere it's defined. argmax restriction
+# prevents the degenerate "zero-endurance" tail (where ratio → ∞ because
+# the denominator collapses) from being picked as 'optimal'.
+plottable = (pages_on_ltram_pct > 0) & np.isfinite(eff_ratio)
+ax_eff.plot(thresh_secs[plottable], eff_ratio[plottable], color="#9467bd",
+            linewidth=2.5, marker="^", markersize=4,
+            label="efficiency = %pages_on_LtRAM / %endurance_consumed")
+
+# argmax constrained to "meaningful" range:
+#   endurance must fit 5y budget (≤ 100%) AND policy must be doing real
+#   work (≥ 1% endurance), to rule out the degenerate "T so high that
+#   nothing migrates" point where the ratio explodes meaninglessly.
+# Two tiers of fallback for workloads that don't reach 1% endurance:
+useful = plottable & (total_5y_pct >= 1.0) & (total_5y_pct <= 100.0)
+if not useful.any():
+    # Workload barely uses endurance; relax to >= 0.01% but stay ≤ 100%.
+    useful = plottable & (total_5y_pct >= 0.01) & (total_5y_pct <= 100.0)
+if not useful.any():
+    # Workload never fits in budget at all; pick the smallest T in budget.
+    # (Should match the red endurance-budget line in this case.)
+    useful = plottable & (total_5y_pct <= 100.0)
+if useful.any():
+    eff_argmax_idx = int(np.argmax(np.where(useful, eff_ratio, -np.inf)))
+    T_eff_pct      = thresh_secs[eff_argmax_idx]
+    eff_max        = eff_ratio[eff_argmax_idx]
+    eff_pages      = pages_on_ltram_pct[eff_argmax_idx]
+    eff_end        = total_5y_pct[eff_argmax_idx]
+    eff_pct_label = (f"%/% optimal: T={T_eff_pct:.1f}s  "
+                     f"({eff_pages:.0f}% pages / {eff_end:.2f}% endurance "
+                     f"= {eff_max:.2f}× ratio)")
+    for ax in (ax_util, ax_life, ax_eff):
+        ax.axvline(T_eff_pct, color="#9467bd", linewidth=2.6, alpha=0.85,
+                   linestyle="-",
+                   label=eff_pct_label if ax is ax_eff else None)
+    print(f"  %/% efficiency-optimal T: T={T_eff_pct:.2f}s  "
+          f"pages={eff_pages:.1f}%  endurance={eff_end:.2f}%  "
+          f"ratio={eff_max:.3f}")
+
+ax_eff.set_yscale("log")    # ratio can span many orders of magnitude
+ax_eff.set_xlabel("migration threshold T (seconds of clean before migrating)",
+                  fontsize=11)
+ax_eff.set_ylabel("efficiency ratio\n(%pages on LtRAM / %5y endurance)",
+                  fontsize=11)
+ax_eff.legend(loc="upper right", fontsize=9, framealpha=0.92)
+ax_eff.grid(True, which="both", alpha=0.3)
+
+# x-label moves down to ax_eff; clear the old one on ax_life so the panels
+# share x cleanly.
+ax_life.set_xlabel("")
+
 plt.tight_layout()
-plt.savefig(out_dir / "dirty_stability_costben_normalized.png",
+plt.savefig(out_dir / f"dirty_stability_costben_normalized_{phase}.png",
+            dpi=120, bbox_inches="tight")
+plt.close()
+
+# ---------------------------------------------------------------------------
+# Plot 3a (NEW): costben — same 3-panel layout as costben_normalized, but
+# top panel shows TIME-INTEGRATED LtRAM utilization (page-seconds % of
+# capacity × time) instead of the page-count snapshot. Answers:
+#   "given threshold T, what fraction of the LtRAM-capacity × time budget
+#    is consumed by qualifying epochs?"
+# Middle and bottom panels are identical to costben_normalized (5y endurance
+# %, and pages/endurance efficiency ratio) so the policy lines (cluster Ts,
+# red, orange, purple) on top remain comparable.
+# ---------------------------------------------------------------------------
+fig2, (ax2_util, ax2_life, ax2_eff) = plt.subplots(
+    3, 1, figsize=(13, 12), sharex=True,
+    gridspec_kw={"height_ratios": [1, 1, 1]},
+)
+
+# --- Top: page-seconds utilization (% of LTRAM_PAGES × run_seconds) ---
+util_ratio_pct = utility_ratio * 100.0   # 0% = no use, 100% = exactly fill capacity for full run
+ax2_util.plot(thresh_secs, util_ratio_pct, color=TAB_BLUE, linewidth=2.5,
+              marker="o", markersize=4,
+              label=f"page-seconds utilization (Σ(L−T)·count for L>T,\n"
+                    f"normalized to LTRAM_PAGES × run_seconds = "
+                    f"{ltram_capacity_pageseconds:.2e})")
+ax2_util.axhline(100.0, color="gray", linestyle=":", linewidth=1.8, alpha=0.7,
+                 label="100% = exactly fill LtRAM for the full run "
+                       "(above = oversubscription)")
+if util_ratio_pct.max() > 100.0:
+    ax2_util.axhspan(100.0, max(110, util_ratio_pct.max() * 1.05),
+                     color=TAB_RED, alpha=0.08,
+                     label="oversubscribed (more page-seconds than fit)")
+ax2_util.set_ylabel("page-seconds on LtRAM\n(% of capacity × time budget)",
+                    fontsize=11)
+ax2_util.set_title(
+    f"{workload} — migration threshold decision (page-seconds view)\n"
+    f"LtRAM = {LTRAM_PAGES * 4 / 1024:.0f} MB capacity × {total_seconds:.0f}s = "
+    f"{ltram_capacity_pageseconds:.2e} page-sec budget   |   "
+    f"NOR = {TOTAL_ERASES:.2e} writes over device lifetime",
+    fontsize=12,
+)
+ax2_util.set_ylim(0, max(105, util_ratio_pct.max() * 1.1))
+ax2_util.legend(loc="upper right", fontsize=10)
+ax2_util.grid(True, alpha=0.3)
+
+# --- Middle: identical to costben_normalized middle panel (5y endurance %)
+ax2_life.plot(thresh_secs, total_5y_pct, color=TAB_ORANGE,
+              linewidth=2.5, marker="s", markersize=4,
+              label="total endurance consumed (5y deployment)")
+ax2_life.set_ylim(0, max(110, total_5y_pct.max() * 1.1))
+ax2_life.set_ylabel("% of NOR chip endurance consumed (5-year deployment)",
+                    fontsize=11)
+ax2_life.legend(loc="upper right", fontsize=10, framealpha=0.92)
+ax2_life.grid(True, alpha=0.3)
+
+# --- Bottom: identical to costben_normalized bottom panel (efficiency) ---
+ax2_eff.plot(thresh_secs[plottable], eff_ratio[plottable], color="#9467bd",
+             linewidth=2.5, marker="^", markersize=4,
+             label="efficiency = %pages_on_LtRAM / %endurance_consumed")
+ax2_eff.set_yscale("log")
+ax2_eff.set_xlabel("migration threshold T (seconds of clean before migrating)",
+                   fontsize=11)
+ax2_eff.set_ylabel("efficiency ratio\n(%pages on LtRAM / %5y endurance)",
+                   fontsize=11)
+ax2_eff.grid(True, which="both", alpha=0.3)
+
+# Re-draw the same vertical T-marker lines on all three panels.
+for r in cluster_results:
+    K = r["K"]
+    color = CLUSTER_COLORS[K]
+    Ts = r["T_secs"]
+    Tsweeps = r["T_sweeps"]
+    pages_pct, idx = _interp(pages_on_ltram_pct, Tsweeps)
+    migs_at_T = migrations[idx]
+    label2 = f"K={K}: T={Ts:.1f}s  ({int(migs_at_T):,} migs, {pages_pct:.0f}% pages)"
+    for ax in (ax2_util, ax2_life, ax2_eff):
+        ax.axvline(Ts, color=color, linewidth=2.2, alpha=0.85,
+                   linestyle=(0, (5, 2 + K)),
+                   label=label2 if ax is ax2_life else None)
+if under_budget.any():
+    for ax in (ax2_util, ax2_life, ax2_eff):
+        ax.axvline(T_budget, color="red", linewidth=2.6, alpha=0.85,
+                   linestyle="-",
+                   label=budget_label if ax is ax2_life else None)
+if valid_eff.any():
+    for ax in (ax2_util, ax2_life, ax2_eff):
+        ax.axvline(T_eff, color="darkorange", linewidth=2.6, alpha=0.85,
+                   linestyle="-",
+                   label=eff_label if ax is ax2_life else None)
+if useful.any():
+    for ax in (ax2_util, ax2_life, ax2_eff):
+        ax.axvline(T_eff_pct, color="#9467bd", linewidth=2.6, alpha=0.85,
+                   linestyle="-",
+                   label=eff_pct_label if ax is ax2_eff else None)
+ax2_life.legend(loc="upper right", fontsize=9, framealpha=0.92)
+ax2_eff.legend(loc="upper right", fontsize=9, framealpha=0.92)
+
+plt.tight_layout()
+plt.savefig(out_dir / f"dirty_stability_costben_{phase}.png",
             dpi=120, bbox_inches="tight")
 plt.close()
 
@@ -648,11 +896,10 @@ t4_psec = tier4_pagesw * to_sec
 total_psec = total_pagesw * to_sec
 
 # Read per-page CSV to subtract Class 1 (static-RO) contribution from the long-epoch bucket
-sweep_csv = out_dir / "dirty_sweep.csv"
 tier1_pagesw = 0
 tier1_pages_count = 0
-if sweep_csv.exists():
-    df_pages = pd.read_csv(sweep_csv, comment="#")
+try:
+    df_pages = load_pages(out_dir, phase)
     df_pages["writable"] = df_pages["vma_perms"].str[1] == "w"
     tier1_pages_count = int((~df_pages["writable"]).sum())
     # Class 1 pages each contribute one epoch of length=total_sweeps to stability_hist.
@@ -661,7 +908,7 @@ if sweep_csv.exists():
     tier2_pagesw_writable = max(tier2_pagesw - tier1_pagesw, 0)
     t1_psec = tier1_pagesw * to_sec
     t2w_psec = tier2_pagesw_writable * to_sec
-else:
+except FileNotFoundError:
     t1_psec = 0
     t2w_psec = t2_psec
 
@@ -716,7 +963,7 @@ ax.set_title(
 )
 ax.set_aspect("equal")
 plt.tight_layout()
-plt.savefig(out_dir / "dirty_tiers_perepoch.png", dpi=120, bbox_inches="tight")
+plt.savefig(out_dir / f"dirty_tiers_perepoch_{phase}.png", dpi=120, bbox_inches="tight")
 plt.close()
 
 print(f"  capacity-feasible threshold (page-seconds, ref only):  T = {T_cap:.1f}s" if T_cap is not None else "  capacity always feasible")

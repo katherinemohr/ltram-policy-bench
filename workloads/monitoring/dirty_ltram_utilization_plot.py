@@ -32,23 +32,20 @@ import matplotlib.pyplot as plt
 TOP_DIR = Path(__file__).parents[2]
 RESULTS_DIR = TOP_DIR / "results"
 
-workload = sys.argv[1]
-run_name = sys.argv[2]
+sys.path.insert(0, str(Path(__file__).parent))
+from _phase_data import load_pages, load_stability, parse_args_phase
+
+workload, run_name, phase = parse_args_phase(sys.argv)
 out_dir = RESULTS_DIR / "runs" / run_name
-sweep_csv     = out_dir / "dirty_sweep.csv"
-stability_csv = out_dir / "dirty_sweep_stability.csv"
 
-with open(sweep_csv) as f:
-    header = f.readline().strip()
-m = re.search(r"total_sweeps=(\d+)\s+total_seconds=([\d.]+)\s+interval_ms=(\d+)",
-              header)
-total_sweeps  = int(m.group(1))
-total_seconds = float(m.group(2))
-interval_ms   = int(m.group(3))
+df = load_pages(out_dir, phase)
+total_sweeps  = df.attrs["total_sweeps"]
+total_seconds = df.attrs["total_seconds"]
+interval_ms   = df.attrs["interval_ms"]
 sec_per_sweep = interval_ms / 1000.0
-
-df = pd.read_csv(sweep_csv, comment="#", dtype={"write_events": str})
-df["write_events"] = df["write_events"].fillna("")
+phase_label   = df.attrs["label"]
+if "write_events" not in df.columns:
+    df["write_events"] = ""
 n_pages_total = len(df)
 if n_pages_total == 0:
     print("WARNING: no pages")
@@ -139,10 +136,10 @@ def weighted_kmeans_1d(values, weights, K, max_iter=200, n_init=10, seed=0):
 
 
 cluster_Ts_sweeps = {}
-if stability_csv.exists():
-    sf = pd.read_csv(stability_csv, comment="#")
-    L_arr = sf["stability_period_sweeps"].values.astype(float)
-    C_arr = sf["count"].values.astype(float)
+try:
+    sf_data = load_stability(out_dir, phase)
+    L_arr = sf_data["L"].astype(float)
+    C_arr = sf_data["C"].astype(float)
     pos = L_arr > 0
     L_arr, C_arr = L_arr[pos], C_arr[pos]
     log_L = np.log(L_arr)
@@ -156,6 +153,8 @@ if stability_csv.exists():
         else:
             T_sw = 0
         cluster_Ts_sweeps[K] = T_sw
+except FileNotFoundError:
+    pass
 
 # === Compute timelines for several T candidates ===
 candidate_Ts = [("T = 0s (instant)", 0)]
@@ -218,7 +217,7 @@ ax.legend(loc="upper right", fontsize=10, framealpha=0.92)
 ax.grid(True, alpha=0.3)
 
 plt.tight_layout()
-plt.savefig(out_dir / "dirty_ltram_utilization.png", dpi=120, bbox_inches="tight")
+plt.savefig(out_dir / f"dirty_ltram_utilization_{phase}.png", dpi=120, bbox_inches="tight")
 plt.close()
 
 print(f"\nWrote dirty_ltram_utilization.png to {out_dir}")

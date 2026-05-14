@@ -21,6 +21,8 @@
 #include <stdio.h>
 #include <time.h>
 #include <sys/mman.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 #define N 7168
 #define ITERS 10
@@ -75,6 +77,17 @@ void numa_mm_repeat(int iters)
 
     // debugging: make sure A is actually only read from
     mprotect(A, bytes, PROT_READ);
+
+    // Marker file: signals end of LOAD phase (alloc + fill_random).
+    // S51ltramrun's matmul() watches for this to deterministically switch
+    // dirty_sweep from dirty_sweep_load.csv → dirty_sweep.csv at the actual
+    // init → multiply-loop boundary (mirrors the gapbs pr.cc marker fix).
+    {
+        const char *marker = getenv("LTRAM_MATMUL_INIT_DONE_MARKER");
+        if (!marker) marker = "/tmp/ltram_matmul_init_done";
+        int fd = open(marker, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+        if (fd >= 0) close(fd);
+    }
 
     for (int t = 0; t < iters; t++) {
         memset(tmp, 0, bytes);

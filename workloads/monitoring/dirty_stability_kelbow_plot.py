@@ -32,23 +32,20 @@ from sklearn.metrics import silhouette_score
 TOP_DIR = Path(__file__).parents[2]
 RESULTS_DIR = TOP_DIR / "results"
 
-workload = sys.argv[1]
-run_name = sys.argv[2]
+sys.path.insert(0, str(Path(__file__).parent))
+from _phase_data import load_stability, parse_args_phase
+
+workload, run_name, phase = parse_args_phase(sys.argv)
 out_dir = RESULTS_DIR / "runs" / run_name
-csv_path = out_dir / "dirty_sweep_stability.csv"
 
-with open(csv_path) as f:
-    header = f.readline().strip()
-m = re.search(r"total_sweeps=(\d+)\s+total_seconds=([\d.]+)\s+interval_ms=(\d+)",
-              header)
-total_sweeps  = int(m.group(1))
-total_seconds = float(m.group(2))
-interval_ms   = int(m.group(3))
-sec_per_sweep = interval_ms / 1000.0
-
-df = pd.read_csv(csv_path, comment="#")
-L = df["stability_period_sweeps"].values.astype(float)
-C = df["count"].values.astype(float)
+data = load_stability(out_dir, phase)
+total_sweeps  = data["total_sweeps"]
+total_seconds = data["total_seconds"]
+interval_ms   = data["interval_ms"]
+sec_per_sweep = data["sec_per_sweep"]
+phase_label   = data["label"]
+L = data["L"].astype(float)
+C = data["C"].astype(float)
 mask_pos = L > 0
 L, C = L[mask_pos], C[mask_pos]
 
@@ -186,7 +183,7 @@ fig.suptitle(
     fontsize=12, y=1.00,
 )
 plt.tight_layout()
-plt.savefig(out_dir / "dirty_stability_kelbow.png", dpi=120, bbox_inches="tight")
+plt.savefig(out_dir / f"dirty_stability_kelbow_{phase}.png", dpi=120, bbox_inches="tight")
 plt.close()
 
 # === Print summary ===

@@ -37,22 +37,20 @@ import pandas as pd
 TOP_DIR = Path(__file__).parents[2]
 RESULTS_DIR = TOP_DIR / "results"
 
-workload = sys.argv[1]
-run_name = sys.argv[2]
+sys.path.insert(0, str(Path(__file__).parent))
+from _phase_data import load_pages, parse_args_phase
+
+workload, run_name, phase = parse_args_phase(sys.argv)
 out_dir = RESULTS_DIR / "runs" / run_name
-csv_path = out_dir / "dirty_sweep.csv"
 
-with open(csv_path) as f:
-    header_line = f.readline().strip()
-m = re.search(r"total_sweeps=(\d+)\s+total_seconds=([\d.]+)\s+interval_ms=(\d+)",
-              header_line)
-total_sweeps  = int(m.group(1))
-total_seconds = float(m.group(2))
-interval_ms   = int(m.group(3))
+df = load_pages(out_dir, phase)
+total_sweeps  = df.attrs["total_sweeps"]
+total_seconds = df.attrs["total_seconds"]
+interval_ms   = df.attrs["interval_ms"]
 sec_per_sweep = interval_ms / 1000.0
-
-df = pd.read_csv(csv_path, comment="#", dtype={"write_events": str})
-df["write_events"] = df["write_events"].fillna("")
+phase_label   = df.attrs["label"]
+if "write_events" not in df.columns:
+    df["write_events"] = ""
 
 if "write_events" not in df.columns:
     print("ERROR: dirty_sweep.csv has no write_events column. "
@@ -64,12 +62,35 @@ if n_pages_total == 0:
     print("WARNING: no pages in dirty_sweep.csv")
     sys.exit(0)
 
-# Encoding for per-(page, sweep) state
-STATE_NOT_PRESENT  = 0
-STATE_INTERMEDIATE = 1
-STATE_FINAL        = 2
+# Encoding for per-(page, sweep) state. Numeric values are chosen so that
+# np.max() during downsampling gives the right "most-active" priority
+# across BOTH axes — within one page (time-stride) and across pages
+# (page-stride):
+#
+#   DIRTY (3) > INTERMEDIATE (2) > NOT_PRESENT (1) > FINAL (0)
+#
+# Why FINAL is the LOWEST: a merged display row contains many pages with
+# different lifecycles (e.g. static-RO pages always in FINAL, workload
+# pages with NOT_PRESENT → events → INTER → FINAL). If FINAL had higher
+# numeric value than NOT_PRESENT, a bin containing 90 static-RO pages
+# (FINAL) and 1 workload page (NOT_PRESENT during early sweeps) would
+# show RED — implying "settled" — even though the workload page hasn't
+# been written yet. Then when the workload page's events arrive we'd see
+# RED → INTER → DIRTY → RED, which is impossible for any real page and
+# very confusing visually. Putting FINAL at the bottom means RED only
+# appears in a bin where ALL pages have actually settled into their last
+# clean stretch — a meaningful "settled" signal.
+#
+# COLORMAP indexes match the state values. Blue = clean; red = dirty.
+#   index 0 → dark blue   (FINAL clean — settled)
+#   index 1 → white       (NOT_PRESENT)
+#   index 2 → light blue  (INTERMEDIATE clean — active, between writes)
+#   index 3 → vermilion   (DIRTY — write event)
+STATE_FINAL        = 0
+STATE_NOT_PRESENT  = 1
+STATE_INTERMEDIATE = 2
 STATE_DIRTY        = 3
-COLORMAP = ListedColormap(["white", "#56B4E9", "#D55E00", "#0072B2"])
+COLORMAP = ListedColormap(["#0072B2", "white", "#56B4E9", "#D55E00"])
 
 # === Downsampling parameters ===
 # Target image resolution caps. Anything larger than these gets downsampled
@@ -100,11 +121,30 @@ def build_state_row(events):
     """Per-page 1D state array. Memory: total_sweeps bytes."""
     state = np.full(total_sweeps, STATE_NOT_PRESENT, dtype=np.uint8)
     if not events:
-        # Static-RO: entire run is the FINAL state.
+        # Page never written in this phase. For run-only view, the page came
+        # in clean from load and stays clean → entire run is one FINAL epoch.
+        # Same answer for full view: a page that's never written across the
+        # whole observation is in FINAL state throughout. Either way, RED.
         state[:] = STATE_FINAL
         return state, total_sweeps
     first_event = events[0]
     last_event  = events[-1]
+
+    # Pre-first-event coloring depends on the view phase:
+    #
+    #   run-only: the page DOES exist coming into run (faulted in during
+    #             load) — it's in an INTERMEDIATE epoch (tail of an epoch
+    #             that started with load's last write to it, ends at
+    #             first_event in run). Coloring it NOT_PRESENT (white)
+    #             would be a lie — the page is alive, just hasn't been
+    #             rewritten yet at this point in the run.
+    #
+    #   full view: pre-first-event is genuinely "page didn't exist yet"
+    #              (allocated AT first_event in the merged timeline) →
+    #              NOT_PRESENT (white) is correct.
+    if phase == "run" and first_event > 0:
+        state[:first_event] = STATE_INTERMEDIATE
+
     if first_event < last_event:
         state[first_event:last_event + 1] = STATE_INTERMEDIATE
     if last_event + 1 < total_sweeps:
@@ -161,9 +201,9 @@ def render(grid, fname, title_suffix, ylabel):
                  f"{interval_ms}ms{ds_str}")
 
     legend = [
-        mpatches.Patch(color="#0072B2", label="dirty (write observed)"),
+        mpatches.Patch(color="#D55E00", label="dirty (write observed)"),
         mpatches.Patch(color="#56B4E9", label="clean — intermediate epoch"),
-        mpatches.Patch(color="#D55E00", label="clean — final epoch"),
+        mpatches.Patch(color="#0072B2", label="clean — final epoch"),
         mpatches.Patch(color="white",   label="not present", ec="black"),
     ]
     ax.legend(handles=legend, loc="center left", bbox_to_anchor=(1.02, 0.5),
@@ -174,7 +214,7 @@ def render(grid, fname, title_suffix, ylabel):
 
 
 # Plot 1: original order. Low addresses at bottom (origin='lower' + ascending /proc/maps).
-render(grid_unsorted, "dirty_timeline.png",
+render(grid_unsorted, f"dirty_timeline_{phase}.png",
        "(original page order, low addresses at bottom)",
        ylabel=f"virtual page index ({n_pages_total} pages, addr ↑)")
 
@@ -182,12 +222,62 @@ render(grid_unsorted, "dirty_timeline.png",
 sort_idx = np.argsort(-final_lengths, kind="stable")
 grid_sorted, _ = build_grid(sort_idx)
 
-render(grid_sorted, "dirty_timeline_sorted.png",
+render(grid_sorted, f"dirty_timeline_sorted_{phase}.png",
        "(sorted by final-epoch length, longest/best at bottom)",
        ylabel=f"virtual page index, sorted ({n_pages_total} pages, longer-final ↓)")
 
-print(f"Wrote dirty_timeline.png and dirty_timeline_sorted.png to {out_dir}")
-print(f"  pages plotted: {n_pages_total}  "
-      f"(image grid {n_p_bins} × {n_t_bins})")
-print(f"  pages whose data has been quiet for ≥50% of run: "
+# Pass 3: ACTIVE-ONLY view — pages with ≥1 event in this phase.
+# For sparse-write workloads (e.g. redis with mini-spec where only 0.5% of
+# pages get touched in run), the sorted view is dominated by the stays-RO
+# bottom band — the active sliver at top is sub-pixel. This view filters to
+# only the active set, recomputes p_stride for the smaller count, and gives
+# the active pages the full image height. Always emitted as a third figure
+# so the unsorted/sorted views still tell the "all pages" story.
+active_idx = np.where(final_lengths < total_sweeps)[0]
+n_active = len(active_idx)
+if n_active > 0:
+    active_sort = active_idx[np.argsort(-final_lengths[active_idx], kind="stable")]
+    active_p_stride = max(1, (n_active + MAX_H - 1) // MAX_H)
+    active_n_p_bins = (n_active + active_p_stride - 1) // active_p_stride
+
+    active_grid = np.zeros((active_n_p_bins, n_t_bins), dtype=np.uint8)
+    write_events_col = df["write_events"].values
+    for new_idx, old_idx in enumerate(active_sort):
+        events = parse_events(write_events_col[old_idx])
+        state, _ = build_state_row(events)
+        state_t = downsample_time(state, t_stride, n_t_bins)
+        p_bin = new_idx // active_p_stride
+        np.maximum(active_grid[p_bin], state_t, out=active_grid[p_bin])
+
+    fig, ax = plt.subplots(figsize=(14, 8))
+    extent = (0, total_seconds, 0, n_active)
+    norm = BoundaryNorm([0, 1, 2, 3, 4], COLORMAP.N)
+    ax.imshow(active_grid, aspect="auto", interpolation="nearest",
+              cmap=COLORMAP, norm=norm, extent=extent, origin="lower")
+    ax.set_xlabel("time (seconds since run start)")
+    ax.set_ylabel(f"active pages, sorted ({n_active} pages w/ ≥1 event, longer-final ↓)")
+    ds_str = (f"  |  active p_stride={active_p_stride}, t_stride={t_stride}"
+              if (active_p_stride > 1 or t_stride > 1) else "")
+    ax.set_title(
+        f"{workload} — per-page write timeline, ACTIVE PAGES ONLY\n"
+        f"{n_active:,} pages with run events out of {n_pages_total:,} total "
+        f"({100*n_active/n_pages_total:.1f}%){ds_str}"
+    )
+    legend = [
+        mpatches.Patch(color="#D55E00", label="dirty (write observed)"),
+        mpatches.Patch(color="#56B4E9", label="clean — intermediate epoch"),
+        mpatches.Patch(color="#0072B2", label="clean — final epoch"),
+        mpatches.Patch(color="white",   label="not present", ec="black"),
+    ]
+    ax.legend(handles=legend, loc="center left", bbox_to_anchor=(1.02, 0.5),
+              fontsize=10)
+    plt.tight_layout()
+    plt.savefig(out_dir / f"dirty_timeline_active_{phase}.png",
+                dpi=120, bbox_inches="tight")
+    plt.close()
+
+print(f"Wrote dirty_timeline_{phase}.png, dirty_timeline_sorted_{phase}.png, "
+      f"and dirty_timeline_active_{phase}.png ({n_active:,}/{n_pages_total:,} "
+      f"active pages, {100*n_active/n_pages_total:.1f}%) to {out_dir}")
+print(f"  pages quiet for ≥50% of run: "
       f"{int((final_lengths >= total_sweeps * 0.5).sum())}")

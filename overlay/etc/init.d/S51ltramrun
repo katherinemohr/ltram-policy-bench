@@ -32,12 +32,17 @@ resolve_run_dir() {
 
 start_dirty_sweep() {
     # $1 = target pid
+    # $2 = optional output basename (default "dirty_sweep")
+    #      Used for phase splits (e.g. "dirty_sweep_load" + "dirty_sweep_run")
+    #      so different phases of a workload can be profiled separately.
     [ "$HIST" -eq 1 ] || return 0
     local target_pid=$1
+    local out_base=${2:-dirty_sweep}
     /mnt/workloads/monitoring/dirty_sweep "$target_pid" \
-        "$RUN_DIR/dirty_sweep.csv" 100 2> "$RUN_DIR/dirty_sweep.log" &
+        "$RUN_DIR/${out_base}.csv" 100 2> "$RUN_DIR/${out_base}.log" &
     SWEEP_PID=$!
-    echo "[hist] dirty_sweep pid=$SWEEP_PID, target pid=$target_pid"
+    echo "[hist] dirty_sweep pid=$SWEEP_PID, target pid=$target_pid, "\
+"out=${out_base}.csv"
 }
 
 stop_dirty_sweep() {
@@ -87,27 +92,65 @@ run_workload() {
 matmul() {
     # Allow iteration count override via kernel cmdline (LTRAM_MATMUL_ITERS).
     # Default is the binary's compiled-in ITERS=10.
+    #
+    # Load/run split is DETERMINISTIC: matrix_multiply.c writes a marker
+    # file when the alloc + fill_random initialization finishes (right
+    # before the multiply loop). We poll for it instead of guessing a
+    # wallclock duration — same approach as the gapbs split.
     local mm_iters=$(grep -o 'ltram_matmul_iters=[^ ]*' /proc/cmdline | cut -d= -f2)
-    echo "Starting Matrix Multiplication workload (iters=${mm_iters:-default})..."
-    numactl --cpunodebind=0 --membind=0 /mnt/workloads/matmul/matrix_multiply $mm_iters \
+    local marker=/tmp/ltram_matmul_init_done
+    rm -f "$marker"
+    local timeout_ds=3000     # 5 minutes in 0.1s ticks (init is fast)
+
+    echo "Starting Matrix Multiplication workload (iters=${mm_iters:-default}, deterministic split: $marker)..."
+    LTRAM_MATMUL_INIT_DONE_MARKER="$marker" \
+        numactl --cpunodebind=0 --membind=0 /mnt/workloads/matmul/matrix_multiply $mm_iters \
         > "$RUN_DIR/workload-stdout.txt" 2>&1 &
     local pid=$!
-    # Give numactl a moment to exec into matrix_multiply before dirty_sweep
-    # snapshots /proc/<pid>/maps. Otherwise dirty_sweep latches onto numactl's
-    # ~36 dynamic-link VMAs, which get wiped at exec, and the per-page tracking
-    # silently produces an empty CSV. (See exec race in repo notes.)
-    sleep 0.5
-    start_dirty_sweep "$pid"
+    sleep 0.5    # let numactl exec into matrix_multiply (race fix)
+
+    # === LOAD phase: NUMA alloc + fill_random for both matrices ===
+    start_dirty_sweep "$pid" "dirty_sweep_load"
+    local waited=0
+    while [ ! -f "$marker" ]; do
+        if ! kill -0 "$pid" 2>/dev/null; then
+            echo "[matmul] process exited before marker — single CSV (load only)"
+            stop_dirty_sweep
+            return 0
+        fi
+        if [ $waited -ge $timeout_ds ]; then
+            echo "[matmul] WARNING: init marker not seen in $((timeout_ds/10))s — proceeding anyway"
+            break
+        fi
+        sleep 0.1
+        waited=$((waited + 1))
+    done
+    stop_dirty_sweep
+    echo "[matmul] LOAD phase complete after ~$((waited / 10))s (saw $marker)"
+
+    if ! kill -0 "$pid" 2>/dev/null; then
+        echo "[matmul] process exited at init→multiply boundary — only load CSV"
+        return 0
+    fi
+
+    # === RUN phase: matmul iterations (read A, write C) ===
+    start_dirty_sweep "$pid" "dirty_sweep"
     wait "$pid"
     stop_dirty_sweep
-    echo "Matrix Multiplication complete."
+    echo "Matrix Multiplication complete (deterministic load/run split)."
 }
 
 gapbs_pagerank() {
     # GAPbs flags overridable via kernel cmdline:
-    #   ltram_gapbs_graph (default 20 = 2^20 vertices)
-    #   ltram_gapbs_trials (number of independent trials, default 16)
-    #   ltram_gapbs_iters  (PageRank iterations per trial, default ~implementation default)
+    #   ltram_gapbs_graph   — default 20 = 2^20 vertices
+    #   ltram_gapbs_trials  — number of independent trials
+    #   ltram_gapbs_iters   — PR iterations per trial
+    #
+    # Load/run split is DETERMINISTIC: our patched pr.cc writes a marker
+    # file when b.MakeGraph() returns (= build phase complete). We watch
+    # for the marker instead of sleeping a fixed time, so the boundary
+    # always lands at the actual build→PR transition regardless of graph
+    # size or system load. No more guessing load_secs per graph size.
     local g=$(grep -o 'ltram_gapbs_graph=[^ ]*'  /proc/cmdline | cut -d= -f2)
     local n=$(grep -o 'ltram_gapbs_trials=[^ ]*' /proc/cmdline | cut -d= -f2)
     local i=$(grep -o 'ltram_gapbs_iters=[^ ]*'  /proc/cmdline | cut -d= -f2)
@@ -115,16 +158,50 @@ gapbs_pagerank() {
     local args="-g $g"
     [ -n "$n" ] && args="$args -n $n"
     [ -n "$i" ] && args="$args -i $i"
-    echo "Running GAPbs PageRank with args: $args"
-    numactl --cpunodebind=0 --membind=0 /mnt/workloads/pr $args \
+
+    local marker=/tmp/ltram_gapbs_build_done
+    rm -f "$marker"
+    # Safety timeout: cap waiting in case the marker never lands (e.g.
+    # workload exited unexpectedly). 10 min is enough for g=24 builds.
+    local timeout_ds=6000     # tenths of a second
+
+    echo "Running GAPbs PageRank with args: $args  (deterministic split: $marker)"
+    LTRAM_GAPBS_BUILD_DONE_MARKER="$marker" \
+        numactl --cpunodebind=0 --membind=0 /mnt/workloads/pr $args \
         > "$RUN_DIR/workload-stdout.txt" 2>&1 &
     local pid=$!
-    # Same exec race as matmul: wait for numactl → /mnt/workloads/pr.
-    sleep 0.5
-    start_dirty_sweep "$pid"
+    sleep 0.5    # let numactl exec into /mnt/workloads/pr (race fix)
+
+    # === LOAD phase: graph generate + build (mostly writes) ===
+    start_dirty_sweep "$pid" "dirty_sweep_load"
+    local waited=0
+    while [ ! -f "$marker" ]; do
+        if ! kill -0 "$pid" 2>/dev/null; then
+            echo "[gapbs] process exited before marker — single CSV (load only)"
+            stop_dirty_sweep
+            return 0
+        fi
+        if [ $waited -ge $timeout_ds ]; then
+            echo "[gapbs] WARNING: build marker not seen in $((timeout_ds/10))s — proceeding anyway"
+            break
+        fi
+        sleep 0.1
+        waited=$((waited + 1))
+    done
+    stop_dirty_sweep
+    local build_secs=$((waited / 10))
+    echo "[gapbs] LOAD phase complete after ~${build_secs}s (saw $marker)"
+
+    if ! kill -0 "$pid" 2>/dev/null; then
+        echo "[gapbs] process exited at build→run boundary — only load CSV"
+        return 0
+    fi
+
+    # === RUN phase: PR trials (mostly reads) ===
+    start_dirty_sweep "$pid" "dirty_sweep"
     wait "$pid"
     stop_dirty_sweep
-    echo "PageRank complete."
+    echo "PageRank complete (deterministic load/run split)."
 }
 
 redis() {
@@ -137,8 +214,6 @@ redis() {
     local redis_pid=$(pidof redis-server)
     echo "redis-server pid=$redis_pid"
 
-    start_dirty_sweep "$redis_pid"
-
     # Spec file selection: read ltram_redis_spec from the kernel command line,
     # default to workloadmini.spec for backward compatibility. The host can
     # set LTRAM_REDIS_SPEC=workloadlong.spec (or any other spec) to swap in
@@ -148,14 +223,24 @@ redis() {
     WORKLOAD_PATH="/mnt/workloads/YCSB-C/workloads/$SPEC"
     echo "Using YCSB workload spec: $SPEC"
 
+    # === PHASE 1 (LOAD): dedicated dirty_sweep → dirty_sweep_load.csv ===
+    # The load phase fills Redis from empty: every page faulted in & written
+    # exactly once. Profile this separately so the steady-state run-phase
+    # statistics aren't diluted by the one-time load burst.
+    start_dirty_sweep "$redis_pid" "dirty_sweep_load"
     echo "Phase 1: Loading data into Redis..."
     /mnt/workloads/YCSB-C/ycsbc -db redis -P "$WORKLOAD_PATH" \
         > "$RUN_DIR/ycsb-load.txt" 2>&1
+    stop_dirty_sweep
 
+    # === PHASE 2 (RUN): default-named dirty_sweep → dirty_sweep.csv ===
+    # The default basename keeps the existing analysis pipeline happy (it
+    # reads dirty_sweep.csv) while phase-1 data lives alongside as
+    # dirty_sweep_load.csv for explicit cold-start analysis.
+    start_dirty_sweep "$redis_pid" "dirty_sweep"
     echo "Phase 2: Running operations..."
     /mnt/workloads/YCSB-C/ycsbc -db redis -P "$WORKLOAD_PATH" \
         > "$RUN_DIR/ycsb-run.txt" 2>&1
-
     stop_dirty_sweep
 }
 

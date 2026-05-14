@@ -65,7 +65,6 @@ CONFIG_TAG=${LTRAM_CONFIG:-configA}
 # Histogram mode (LTRAM_HIST=1): also runs dirty_sweep alongside the workload
 # to capture per-page write counts. Use scripts/run-vm-hist.sh as a shorthand.
 LTRAM_HIST=${LTRAM_HIST:-0}
-HIST_TAG=$([ "$LTRAM_HIST" = "1" ] && echo "_hist" || echo "")
 # Workload duration overrides for longer / steady-state benchmarks. All have
 # safe defaults that match the original short-run behavior, so existing
 # scripts continue to work unchanged.
@@ -74,10 +73,14 @@ LTRAM_MATMUL_ITERS=${LTRAM_MATMUL_ITERS:-}                  # blank = compiled d
 LTRAM_GAPBS_GRAPH=${LTRAM_GAPBS_GRAPH:-20}                  # 2^N Kronecker graph vertices
 LTRAM_GAPBS_TRIALS=${LTRAM_GAPBS_TRIALS:-}                  # blank = pr binary default
 LTRAM_GAPBS_ITERS=${LTRAM_GAPBS_ITERS:-}                    # blank = pr binary default
-# One run dir per day per (workload, config). Same day + same workload + same
-# config = overwrite previous run's contents. To force a separate dir, set
-# LTRAM_RUN explicitly.
-RUN_NAME=${LTRAM_RUN:-$(date +%Y-%m-%d)_${MODE}_${CONFIG_TAG}${HIST_TAG}}
+LTRAM_GAPBS_LOAD_SECS=${LTRAM_GAPBS_LOAD_SECS:-}            # blank = guess from graph size
+# One run dir per day per (workload, config), nested under the date so each
+# day groups its workloads together:
+#   results/runs/2026-05-07/redis_short_hist/
+#   results/runs/2026-05-07/gapbs_short_hist/
+# Same day + same workload + same config = overwrite previous run's contents.
+# To force a separate dir, set LTRAM_RUN explicitly (e.g. LTRAM_RUN=foo/bar).
+RUN_NAME=${LTRAM_RUN:-$(date +%Y-%m-%d)/${MODE}_${CONFIG_TAG}}
 RUN_DIR="$RESULTS/runs/$RUN_NAME"
 mkdir -p "$RUN_DIR"
 echo "Run name: $RUN_NAME"
@@ -118,7 +121,7 @@ $NUMACTL qemu-system-x86_64 \
   -numa dist,src=1,dst=0,val=20 \
   -kernel "$KERNEL" \
   -drive file="$ROOTFS",format=raw,if=virtio \
-  -append "root=/dev/vda rw console=ttyS0 nokaslr numa=on ltram_workload=$WORKLOAD interactive=$INTERACTIVE ltram_run=$RUN_NAME ltram_hist=$LTRAM_HIST ltram_redis_spec=$LTRAM_REDIS_SPEC ltram_matmul_iters=$LTRAM_MATMUL_ITERS ltram_gapbs_graph=$LTRAM_GAPBS_GRAPH ltram_gapbs_trials=$LTRAM_GAPBS_TRIALS ltram_gapbs_iters=$LTRAM_GAPBS_ITERS" \
+  -append "root=/dev/vda rw console=ttyS0 nokaslr numa=on ltram_workload=$WORKLOAD interactive=$INTERACTIVE ltram_run=$RUN_NAME ltram_hist=$LTRAM_HIST ltram_redis_spec=$LTRAM_REDIS_SPEC ltram_matmul_iters=$LTRAM_MATMUL_ITERS ltram_gapbs_graph=$LTRAM_GAPBS_GRAPH ltram_gapbs_trials=$LTRAM_GAPBS_TRIALS ltram_gapbs_iters=$LTRAM_GAPBS_ITERS ltram_gapbs_load_secs=$LTRAM_GAPBS_LOAD_SECS" \
   \
   -virtfs local,path="$WORKLOADS",mount_tag=workloads,security_model=passthrough \
   -virtfs local,path="$RESULTS",mount_tag=results,security_model=none \
@@ -129,32 +132,56 @@ $NUMACTL qemu-system-x86_64 \
   -no-reboot # -s -S
 
 if [[ $INTERACTIVE -eq 0 ]]; then
-  # plot the meminfo monitoring graphs
+  # plot the meminfo monitoring graphs (single figure set, not per-phase)
   python3 $WORKLOADS/monitoring/meminfo_plot.py $WORKLOAD $RUN_NAME
 
-  # plot the dirty-sweep histogram + CDF (only if HIST mode produced data)
-  if [[ "$LTRAM_HIST" = "1" ]] && [[ -f "$RESULTS/runs/$RUN_NAME/dirty_sweep.csv" ]]; then
-    python3 $WORKLOADS/monitoring/dirty_plot.py $WORKLOAD $RUN_NAME
+  # All dirty_*_plot.py scripts are phase-aware: they take an optional 3rd
+  # arg (run|full) and emit dirty_*_{phase}.png. We always do "run"; if the
+  # workload was phase-split AND the load phase produced data, we ALSO do
+  # "full" (load+run merged) so the team can compare the two views.
+  PHASES="run"
+  if [[ -f "$RESULTS/runs/$RUN_NAME/dirty_sweep_load.csv" ]]; then
+    PHASES="run full"
   fi
 
-  # plot the stability-period distribution + cost/benefit
-  if [[ "$LTRAM_HIST" = "1" ]] && [[ -f "$RESULTS/runs/$RUN_NAME/dirty_sweep_stability.csv" ]]; then
-    python3 $WORKLOADS/monitoring/dirty_stability_plot.py $WORKLOAD $RUN_NAME
-    python3 $WORKLOADS/monitoring/dirty_stability_cluster_plot.py $WORKLOAD $RUN_NAME
-    python3 $WORKLOADS/monitoring/dirty_stability_kelbow_plot.py $WORKLOAD $RUN_NAME
-  fi
+  for PHASE in $PHASES; do
+    if [[ "$LTRAM_HIST" = "1" ]] && [[ -f "$RESULTS/runs/$RUN_NAME/dirty_sweep.csv" ]]; then
+      python3 $WORKLOADS/monitoring/dirty_plot.py $WORKLOAD $RUN_NAME $PHASE
+    fi
+    if [[ "$LTRAM_HIST" = "1" ]] && [[ -f "$RESULTS/runs/$RUN_NAME/dirty_sweep_stability.csv" ]]; then
+      python3 $WORKLOADS/monitoring/dirty_stability_plot.py         $WORKLOAD $RUN_NAME $PHASE
+      python3 $WORKLOADS/monitoring/dirty_stability_cluster_plot.py $WORKLOAD $RUN_NAME $PHASE
+      python3 $WORKLOADS/monitoring/dirty_stability_kelbow_plot.py  $WORKLOAD $RUN_NAME $PHASE
+      python3 $WORKLOADS/monitoring/dirty_stability_endurance_plot.py $WORKLOAD $RUN_NAME $PHASE || \
+          echo "(WARNING: dirty_stability_endurance_plot.py failed for phase=$PHASE)"
+    fi
+    if [[ "$LTRAM_HIST" = "1" ]] && [[ -f "$RESULTS/runs/$RUN_NAME/dirty_sweep.csv" ]]; then
+      python3 $WORKLOADS/monitoring/dirty_timeline_plot.py          $WORKLOAD $RUN_NAME $PHASE || \
+          echo "(WARNING: dirty_timeline_plot.py failed for phase=$PHASE)"
+      # dirty_timeline_clusters_plot.py intentionally skipped — the cluster
+      # info is already in dirty_stability_clusters and dirty_timeline gives
+      # the visual story without per-K recoloring.
+      python3 $WORKLOADS/monitoring/dirty_ltram_utilization_plot.py $WORKLOAD $RUN_NAME $PHASE || \
+          echo "(WARNING: dirty_ltram_utilization_plot.py failed for phase=$PHASE)"
+    fi
+  done
 
-  # plot the per-page write timeline rasters (uses write_events column).
-  # Stderr is NOT redirected to /dev/null so OOM kills, missing-column errors,
-  # and other failures surface visibly in the run output.
-  if [[ "$LTRAM_HIST" = "1" ]] && [[ -f "$RESULTS/runs/$RUN_NAME/dirty_sweep.csv" ]]; then
-    python3 $WORKLOADS/monitoring/dirty_timeline_plot.py $WORKLOAD $RUN_NAME || \
-        echo "(WARNING: dirty_timeline_plot.py failed — see stderr above for cause)"
-    python3 $WORKLOADS/monitoring/dirty_timeline_clusters_plot.py $WORKLOAD $RUN_NAME || \
-        echo "(WARNING: dirty_timeline_clusters_plot.py failed — see stderr above for cause)"
-    python3 $WORKLOADS/monitoring/dirty_stability_endurance_plot.py $WORKLOAD $RUN_NAME || \
-        echo "(WARNING: dirty_stability_endurance_plot.py failed — see stderr above for cause)"
-    python3 $WORKLOADS/monitoring/dirty_ltram_utilization_plot.py $WORKLOAD $RUN_NAME || \
-        echo "(WARNING: dirty_ltram_utilization_plot.py failed — see stderr above for cause)"
+  # phase_compare and phase_categories: both inherently combine load+run.
+  # Only meaningful when both CSVs exist.
+  if [[ "$LTRAM_HIST" = "1" ]] \
+     && [[ -f "$RESULTS/runs/$RUN_NAME/dirty_sweep_stability.csv" ]] \
+     && [[ -f "$RESULTS/runs/$RUN_NAME/dirty_sweep_load_stability.csv" ]]; then
+    python3 $WORKLOADS/monitoring/dirty_stability_phase_compare_plot.py $WORKLOAD $RUN_NAME || \
+        echo "(WARNING: dirty_stability_phase_compare_plot.py failed)"
+    python3 $WORKLOADS/monitoring/dirty_phase_categories_plot.py $WORKLOAD $RUN_NAME full || \
+        echo "(WARNING: dirty_phase_categories_plot.py failed)"
+  fi
+  # phase_categories also works for non-split runs (matmul) — collapses C2/C3
+  # into a single "writable, no run events" bar.
+  if [[ "$LTRAM_HIST" = "1" ]] \
+     && [[ -f "$RESULTS/runs/$RUN_NAME/dirty_sweep.csv" ]] \
+     && [[ ! -f "$RESULTS/runs/$RUN_NAME/dirty_sweep_load_stability.csv" ]]; then
+    python3 $WORKLOADS/monitoring/dirty_phase_categories_plot.py $WORKLOAD $RUN_NAME run || \
+        echo "(WARNING: dirty_phase_categories_plot.py failed)"
   fi
 fi

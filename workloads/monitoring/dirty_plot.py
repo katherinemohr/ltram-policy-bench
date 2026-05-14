@@ -1,46 +1,42 @@
 """
 Plot soft-dirty sweep output (dirty_sweep CSV) as:
 
-  dirty_hist.png  — histogram of per-page write rate (Plot A)
-  dirty_cdf.png   — cumulative distribution of per-page write rate (Plot B)
+  dirty_hist_{phase}.png         per-page write-rate histogram (Plot A)
+  dirty_cdf_{phase}.png          per-page write-rate CDF       (Plot B)
+  dirty_tiers_{phase}.png        four-class breakdown pie (max_stab tier)
+  dirty_tiers_final_{phase}.png  four-class breakdown pie (final_stab tier)
+
+phase ∈ {run, full}. run reads dirty_sweep.csv as-is; full outer-merges
+dirty_sweep.csv + dirty_sweep_load.csv on (vma_start, vma_end, vpage_idx)
+and recomputes final_stab_period / max_stab_period across the boundary.
 
 Per-page write rate = dirty_count / total_seconds, in writes/sec.
 Saturates at 1 / (interval_ms / 1000) — at 100 ms intervals, max 10 writes/sec.
 
-Usage: dirty_plot.py <workload> <run_name>
-  Reads:  results/runs/<run_name>/dirty_sweep.csv
-  Writes: results/runs/<run_name>/dirty_hist.png
-          results/runs/<run_name>/dirty_cdf.png
+Usage: dirty_plot.py <workload> <run_name> [phase]   (phase default 'run')
 """
 
 import sys
-import re
 from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 
+sys.path.insert(0, str(Path(__file__).parent))
+from _phase_data import load_pages, parse_args_phase
+
 TOP_DIR = Path(__file__).parents[2]
 RESULTS_DIR = TOP_DIR / "results"
 
-workload = sys.argv[1]
-run_name = sys.argv[2]
+workload, run_name, phase = parse_args_phase(sys.argv)
 out_dir = RESULTS_DIR / "runs" / run_name
-csv_path = out_dir / "dirty_sweep.csv"
 
-# Header line: "# total_sweeps=N total_seconds=X interval_ms=M pid=P"
-with open(csv_path) as f:
-    header_line = f.readline().strip()
-m = re.search(r"total_sweeps=(\d+)\s+total_seconds=([\d.]+)\s+interval_ms=(\d+)", header_line)
-if not m:
-    print(f"Could not parse header: {header_line!r}")
-    sys.exit(1)
-total_sweeps = int(m.group(1))
-total_seconds = float(m.group(2))
-interval_ms = int(m.group(3))
-saturation_rate = 1000.0 / interval_ms  # writes/sec ceiling
-
-df_all = pd.read_csv(csv_path, comment="#")
+df_all = load_pages(out_dir, phase)
+total_sweeps    = df_all.attrs["total_sweeps"]
+total_seconds   = df_all.attrs["total_seconds"]
+interval_ms     = df_all.attrs["interval_ms"]
+phase_label     = df_all.attrs["label"]
+saturation_rate = 1000.0 / interval_ms
 
 # Four-class classification, using max_stab_period (longest quiet window) per page.
 # This correctly distinguishes "written in a long burst then idle" (Class 2)
@@ -134,13 +130,10 @@ if len(df_t1) > 0:
     print(f"")
 
 # ---------------------------------------------------------------------------
-# Plot A: Histogram of per-page write rate (writes/sec)
+# Plot A: Per-page write-rate histogram (phase-aware)
 # ---------------------------------------------------------------------------
-# X = write rate (writes/sec), same units as the CDF.
-# Y = number of pages with that rate, log scale.
-#
-# Each bar is one possible discrete sweep count (0, 1, 2, ..., total_sweeps),
-# which maps to rate = count / total_seconds. So bar widths are 1/total_seconds.
+# X = write rate (writes/sec). Each bar = one discrete sweep count (0..N).
+# Bar width = 1/total_seconds because adjacent counts differ by one sweep.
 counts = df["dirty_count"].value_counts().sort_index()
 rates  = counts.index.values / total_seconds
 bar_width = 1.0 / total_seconds
@@ -152,23 +145,20 @@ ax.set_yscale("log")
 ax.set_xlabel("write rate (writes/sec)")
 ax.set_ylabel("number of pages (log)")
 ax.set_title(
-    f"{workload} — write-rate distribution (all readable pages)\n"
+    f"{workload} — write-rate distribution, {phase_label}\n"
     f"{total_sweeps} sweeps × {interval_ms} ms = {total_seconds:.1f} s   "
     f"|   of which {ro_pages} pages ({ro_size_mb:.1f} MB) are static-RO (Class 1)"
 )
 ax.set_xlim(-saturation_rate * 0.02, saturation_rate * 1.05)
 ax.grid(True, which="both", axis="y", alpha=0.3)
-
-# Annotate the never-written bar (still useful — the LtRAM-eligible static set)
 ax.annotate(
     f"never-written\n{n_zero} pages ({100*n_zero/n_pages:.1f}%)",
     xy=(0, n_zero), xytext=(saturation_rate * 0.15, n_zero),
     fontsize=10, ha="left", va="center",
     arrowprops=dict(arrowstyle="->", color="gray"),
 )
-
 plt.tight_layout()
-plt.savefig(out_dir / "dirty_hist.png", dpi=120, bbox_inches="tight")
+plt.savefig(out_dir / f"dirty_hist_{phase}.png", dpi=120, bbox_inches="tight")
 plt.close()
 
 # ---------------------------------------------------------------------------
@@ -228,7 +218,7 @@ ax.text(0.45, 0.45, stats_text, transform=ax.transAxes,
                   edgecolor="gray", alpha=0.9))
 
 plt.tight_layout()
-plt.savefig(out_dir / "dirty_cdf.png", dpi=120, bbox_inches="tight")
+plt.savefig(out_dir / f"dirty_cdf_{phase}.png", dpi=120, bbox_inches="tight")
 plt.close()
 
 # ---------------------------------------------------------------------------
@@ -290,7 +280,7 @@ ax.set_title(
 ax.set_aspect("equal")
 
 plt.tight_layout()
-plt.savefig(out_dir / "dirty_tiers.png", dpi=120, bbox_inches="tight")
+plt.savefig(out_dir / f"dirty_tiers_{phase}.png", dpi=120, bbox_inches="tight")
 plt.close()
 
 # ---------------------------------------------------------------------------
@@ -367,11 +357,12 @@ if "final_stab_period" in df_all.columns:
     )
     ax.set_aspect("equal")
     plt.tight_layout()
-    plt.savefig(out_dir / "dirty_tiers_final.png", dpi=120, bbox_inches="tight")
+    plt.savefig(out_dir / f"dirty_tiers_final_{phase}.png", dpi=120, bbox_inches="tight")
     plt.close()
 
-    print(f"Wrote {out_dir/'dirty_hist.png'}, {out_dir/'dirty_cdf.png'}, "
-          f"{out_dir/'dirty_tiers.png'}, {out_dir/'dirty_tiers_final.png'}")
+    print(f"Wrote dirty_hist_run.png, dirty_hist_full.png (if load CSV present), "
+          f"dirty_cdf.png, dirty_tiers.png, dirty_tiers_final.png to {out_dir}")
 else:
-    print(f"Wrote {out_dir/'dirty_hist.png'}, {out_dir/'dirty_cdf.png'}, "
-          f"{out_dir/'dirty_tiers.png'} (no final_stab_period in CSV — re-run for tiers_final.png)")
+    print(f"Wrote dirty_hist_run.png, dirty_hist_full.png (if load CSV present), "
+          f"dirty_cdf.png, dirty_tiers.png to {out_dir} "
+          f"(no final_stab_period in CSV — re-run for tiers_final.png)")

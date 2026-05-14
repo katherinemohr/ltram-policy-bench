@@ -29,26 +29,20 @@ import matplotlib.patches as mpatches
 TOP_DIR = Path(__file__).parents[2]
 RESULTS_DIR = TOP_DIR / "results"
 
-workload = sys.argv[1]
-run_name = sys.argv[2]
+sys.path.insert(0, str(Path(__file__).parent))
+from _phase_data import load_pages, load_stability, parse_args_phase
+
+workload, run_name, phase = parse_args_phase(sys.argv)
 out_dir = RESULTS_DIR / "runs" / run_name
-sweep_csv     = out_dir / "dirty_sweep.csv"
-stability_csv = out_dir / "dirty_sweep_stability.csv"
 
-with open(sweep_csv) as f:
-    header = f.readline().strip()
-m = re.search(r"total_sweeps=(\d+)\s+total_seconds=([\d.]+)\s+interval_ms=(\d+)", header)
-total_sweeps  = int(m.group(1))
-total_seconds = float(m.group(2))
-interval_ms   = int(m.group(3))
+df = load_pages(out_dir, phase)
+total_sweeps  = df.attrs["total_sweeps"]
+total_seconds = df.attrs["total_seconds"]
+interval_ms   = df.attrs["interval_ms"]
 sec_per_sweep = interval_ms / 1000.0
-
-df = pd.read_csv(sweep_csv, comment="#", dtype={"write_events": str})
-df["write_events"] = df["write_events"].fillna("")
-
+phase_label   = df.attrs["label"]
 if "write_events" not in df.columns:
-    print("ERROR: dirty_sweep.csv missing write_events column.")
-    sys.exit(1)
+    df["write_events"] = ""
 
 n_pages = len(df)
 if n_pages == 0:
@@ -57,9 +51,9 @@ if n_pages == 0:
 
 
 # === K-means on stability histogram (same logic as cluster plot) ===
-df_stab = pd.read_csv(stability_csv, comment="#")
-L = df_stab["stability_period_sweeps"].values.astype(float)
-C = df_stab["count"].values.astype(float)
+sf_data = load_stability(out_dir, phase)
+L = sf_data["L"].astype(float)
+C = sf_data["C"].astype(float)
 mp = L > 0
 L, C = L[mp], C[mp]
 log_L = np.log(L)
@@ -139,31 +133,76 @@ def page_epochs(events, total_sweeps):
         yield (last + 1, total_sweeps - 1, total_sweeps - 1 - last)
 
 
-def build_state_matrix(K, centers_log):
-    NOT_PRESENT = 0
-    DIRTY = K + 1
-    state = np.full((n_pages, total_sweeps), NOT_PRESENT, dtype=np.uint8)
-    final_lengths = np.zeros(n_pages, dtype=np.int32)
+# === Downsampling parameters (mirrors dirty_timeline_plot.py) ===
+# For huge workloads (e.g. gapbs xlong: 565k pages × 6000 sweeps = 3.4G cells)
+# we never materialize the full matrix. Downsample by integer stride in BOTH
+# axes; each output cell takes max-priority over the cells it represents
+# (DIRTY > clusters > NOT_PRESENT) so write events survive downsampling.
+MAX_W = 1600
+MAX_H = 1600
+t_stride = max(1, (total_sweeps + MAX_W - 1) // MAX_W)
+p_stride = max(1, (n_pages       + MAX_H - 1) // MAX_H)
+n_t_bins = (total_sweeps + t_stride - 1) // t_stride
+n_p_bins = (n_pages       + p_stride - 1) // p_stride
+if t_stride > 1 or p_stride > 1:
+    print(f"[downsample] {n_pages} pages × {total_sweeps} sweeps → "
+          f"{n_p_bins} × {n_t_bins}  (p_stride={p_stride}, t_stride={t_stride})")
+else:
+    print(f"[full-res] {n_pages} pages × {total_sweeps} sweeps")
 
-    for i, row in enumerate(df.itertuples(index=False)):
-        events = parse_events(getattr(row, "write_events"))
-        if not events:
-            # Static-RO: assign whole run to longest cluster (highest length)
-            cid = epoch_length_to_cluster(total_sweeps, centers_log)
-            state[i, :] = cid + 1
-            final_lengths[i] = total_sweeps
-            continue
-        for (s, e, L_sw) in page_epochs(events, total_sweeps):
-            cid = epoch_length_to_cluster(L_sw, centers_log)
-            state[i, s:e + 1] = cid + 1
-        # Mark write events as DIRTY (1-sweep markers, override)
-        for ev in events:
-            if 0 <= ev < total_sweeps:
-                state[i, ev] = DIRTY
-        # Track final-epoch length for sorting
-        last = events[-1]
-        final_lengths[i] = total_sweeps - 1 - last
-    return state, final_lengths
+
+def _build_row_state(K, centers_log, events):
+    """Build a per-page 1D state row of length total_sweeps (uint8)."""
+    NOT_PRESENT, DIRTY = 0, K + 1
+    state = np.full(total_sweeps, NOT_PRESENT, dtype=np.uint8)
+    if not events:
+        cid = epoch_length_to_cluster(total_sweeps, centers_log)
+        state[:] = cid + 1
+        return state, total_sweeps
+    for (s, e, L_sw) in page_epochs(events, total_sweeps):
+        cid = epoch_length_to_cluster(L_sw, centers_log)
+        state[s:e + 1] = cid + 1
+    for ev in events:
+        if 0 <= ev < total_sweeps:
+            state[ev] = DIRTY
+    last = events[-1]
+    return state, total_sweeps - 1 - last
+
+
+def _downsample_time(state, t_stride, n_t_bins):
+    pad = n_t_bins * t_stride - len(state)
+    if pad > 0:
+        state = np.concatenate([state, np.zeros(pad, dtype=np.uint8)])
+    return state.reshape(n_t_bins, t_stride).max(axis=1)
+
+
+def build_state_matrix(K, centers_log, page_order):
+    """Return downsampled grid for the given page ordering. Streams pages
+    in `page_order` and time-downsamples each row into the output grid.
+    Memory: O(n_p_bins × n_t_bins) plus O(total_sweeps) per row —
+    never the full O(n_pages × total_sweeps).
+    """
+    grid = np.zeros((n_p_bins, n_t_bins), dtype=np.uint8)
+    write_events_col = df["write_events"].values
+    for new_idx, old_idx in enumerate(page_order):
+        events = parse_events(write_events_col[old_idx])
+        row_state, _ = _build_row_state(K, centers_log, events)
+        row_ds = _downsample_time(row_state, t_stride, n_t_bins)
+        p_bin = new_idx // p_stride
+        np.maximum(grid[p_bin], row_ds, out=grid[p_bin])
+    return grid
+
+
+# Pre-compute per-page final-epoch length once (cheap; doesn't depend on K)
+# so we can sort pages BEFORE rendering, instead of sorting an already-
+# downsampled grid (which would mix unrelated pages within a p_bin).
+_we_col = df["write_events"].values
+_final_lengths = np.zeros(n_pages, dtype=np.int32)
+for _i in range(n_pages):
+    _evs = parse_events(_we_col[_i])
+    _final_lengths[_i] = (total_sweeps if not _evs
+                          else total_sweeps - 1 - _evs[-1])
+sort_idx = np.argsort(-_final_lengths, kind="stable")
 
 
 # === Render: one figure per K, processed sequentially to keep memory low ===
@@ -175,9 +214,7 @@ import gc
 print(f"Workload: {workload} ({n_pages} pages × {total_sweeps} sweeps)")
 for K in [2, 3, 4]:
     centers_log = cluster_centers_per_K[K]
-    state, final_lengths = build_state_matrix(K, centers_log)
-    sort_idx = np.argsort(-final_lengths, kind="stable")
-    img = state[sort_idx]
+    img = build_state_matrix(K, centers_log, sort_idx)
 
     # Same Okabe-Ito hot→cold ordering as dirty_stability_cluster_plot.py.
     # Yellow swapped out for bluish-green to improve contrast and luminance
@@ -191,6 +228,12 @@ for K in [2, 3, 4]:
     extent = (0, total_seconds, 0, n_pages)
     ax.imshow(img, aspect="auto", interpolation="nearest",
               cmap=cmap, norm=norm, extent=extent, origin="lower")
+    if t_stride > 1 or p_stride > 1:
+        ax.text(0.99, 0.02,
+                f"downsampled p_stride={p_stride}, t_stride={t_stride}",
+                transform=ax.transAxes, fontsize=8, ha="right", va="bottom",
+                bbox=dict(boxstyle="round,pad=0.3", facecolor="white",
+                          edgecolor="gray", alpha=0.8))
 
     centers_sec = np.exp(centers_log) * sec_per_sweep
     legend = [mpatches.Patch(color="white", ec="black", label="not present")]
@@ -213,11 +256,11 @@ for K in [2, 3, 4]:
         fontsize=11,
     )
     plt.tight_layout()
-    out_path = out_dir / f"dirty_timeline_clusters_K{K}.png"
+    out_path = out_dir / f"dirty_timeline_clusters_K{K}_{phase}.png"
     plt.savefig(out_path, dpi=120, bbox_inches="tight")
     plt.close(fig)
 
     # Free memory before next K
-    del state, img, sort_idx, final_lengths
+    del img
     gc.collect()
     print(f"  K={K}: wrote {out_path.name}  centers={centers_sec.tolist()}")

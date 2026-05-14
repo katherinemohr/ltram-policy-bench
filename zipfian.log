@@ -1,0 +1,1555 @@
+nohup: ignoring input
+[zipf] start at Fri May  8 01:58:23 PM PDT 2026
+[zipf] starting xlong_zipf at Fri May  8 01:58:23 PM PDT 2026
+Run name: 2026-05-08/redis_xlong_zipf
+Run dir : /home/hsshim/projects/ltram-policy-bench/results/runs/2026-05-08/redis_xlong_zipf
+c[?7l[2J[0mSeaBIOS (version 1.15.0-1)
+
+
+iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+BFF8B100+BFECB100 CA00
+Press Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
+
+
+Booting from ROM...
+c[?7l[2J[    0.000000] Linux version 7.0.0-rc6+ (hsshim@sing) (gcc (Ubuntu 11.4.0-1ubuntu1~22.04.3) 11.4.0, GNU ld (GNU Binutils for Ubuntu) 2.38) #1 SMP PREEMPT_DYNAMIC Tue May  5 00:06:30 PDT 2026
+[    0.000000] Command line: root=/dev/vda rw console=ttyS0 nokaslr numa=on ltram_workload=redis interactive=0 ltram_run=2026-05-08/redis_xlong_zipf ltram_hist=1 ltram_redis_spec=workloadxlong_zipf.spec ltram_matmul_iters= ltram_gapbs_graph=20 ltram_gapbs_trials= ltram_gapbs_iters= ltram_gapbs_load_secs=
+[    0.000000] KERNEL supported cpus:
+[    0.000000]   Intel GenuineIntel
+[    0.000000]   AMD AuthenticAMD
+[    0.000000]   Hygon HygonGenuine
+[    0.000000]   Centaur CentaurHauls
+[    0.000000]   zhaoxin   Shanghai  
+[    0.000000] BIOS-provided physical RAM map:
+[    0.000000] BIOS-e820: [mem 0x0000000000000000-0x000000000009fbff]  System RAM
+[    0.000000] BIOS-e820: [mem 0x000000000009fc00-0x000000000009ffff]  device reserved
+[    0.000000] BIOS-e820: [gap 0x00000000000a0000-0x00000000000effff]
+[    0.000000] BIOS-e820: [mem 0x00000000000f0000-0x00000000000fffff]  device reserved
+[    0.000000] BIOS-e820: [mem 0x0000000000100000-0x00000000bffdcfff]  System RAM
+[    0.000000] BIOS-e820: [mem 0x00000000bffdd000-0x00000000bfffffff]  device reserved
+[    0.000000] BIOS-e820: [gap 0x00000000c0000000-0x00000000feffbfff]
+[    0.000000] BIOS-e820: [mem 0x00000000feffc000-0x00000000feffffff]  device reserved
+[    0.000000] BIOS-e820: [gap 0x00000000ff000000-0x00000000fffbffff]
+[    0.000000] BIOS-e820: [mem 0x00000000fffc0000-0x00000000ffffffff]  device reserved
+[    0.000000] BIOS-e820: [mem 0x0000000100000000-0x000000023fffffff]  System RAM
+[    0.000000] NX (Execute Disable) protection: active
+[    0.000000] APIC: Static calls initialized
+[    0.000000] SMBIOS 2.8 present.
+[    0.000000] DMI: QEMU Standard PC (i440FX + PIIX, 1996), BIOS 1.15.0-1 04/01/2014
+[    0.000000] DMI: Memory slots populated: 1/1
+[    0.000000] Hypervisor detected: KVM
+[    0.000000] last_pfn = 0xbffdd max_arch_pfn = 0x400000000
+[    0.000000] kvm-clock: Using msrs 4b564d01 and 4b564d00
+[    0.000002] kvm-clock: using sched offset of 15486760558 cycles
+[    0.000011] clocksource: kvm-clock: mask: 0xffffffffffffffff max_cycles: 0x1cd42e4dffb, max_idle_ns: 881590591483 ns
+[    0.000029] tsc: Detected 1799.991 MHz processor
+[    0.002083] last_pfn = 0x240000 max_arch_pfn = 0x400000000
+[    0.002154] MTRR map: 4 entries (3 fixed + 1 variable; max 19), built from 8 variable MTRRs
+[    0.002160] x86/PAT: Configuration [0-7]: WB  WC  UC- UC  WB  WP  UC- WT  
+[    0.002250] last_pfn = 0xbffdd max_arch_pfn = 0x400000000
+[    0.021690] found SMP MP-table at [mem 0x000f5b80-0x000f5b8f]
+[    0.021766] Using GB pages for direct mapping
+[    0.022976] ACPI: Early table checksum verification disabled
+[    0.023017] ACPI: RSDP 0x00000000000F59A0 000014 (v00 BOCHS )
+[    0.023033] ACPI: RSDT 0x00000000BFFE1B90 00003C (v01 BOCHS  BXPC     00000001 BXPC 00000001)
+[    0.023064] ACPI: FACP 0x00000000BFFE18EC 000074 (v01 BOCHS  BXPC     00000001 BXPC 00000001)
+[    0.023086] ACPI: DSDT 0x00000000BFFE0040 0018AC (v01 BOCHS  BXPC     00000001 BXPC 00000001)
+[    0.023095] ACPI: FACS 0x00000000BFFE0000 000040
+[    0.023102] ACPI: APIC 0x00000000BFFE1960 000090 (v01 BOCHS  BXPC     00000001 BXPC 00000001)
+[    0.023110] ACPI: HPET 0x00000000BFFE19F0 000038 (v01 BOCHS  BXPC     00000001 BXPC 00000001)
+[    0.023118] ACPI: SRAT 0x00000000BFFE1A28 000110 (v01 BOCHS  BXPC     00000001 BXPC 00000001)
+[    0.023126] ACPI: SLIT 0x00000000BFFE1B38 000030 (v01 BOCHS  BXPC     00000001 BXPC 00000001)
+[    0.023134] ACPI: WAET 0x00000000BFFE1B68 000028 (v01 BOCHS  BXPC     00000001 BXPC 00000001)
+[    0.023140] ACPI: Reserving FACP table memory at [mem 0xbffe18ec-0xbffe195f]
+[    0.023143] ACPI: Reserving DSDT table memory at [mem 0xbffe0040-0xbffe18eb]
+[    0.023145] ACPI: Reserving FACS table memory at [mem 0xbffe0000-0xbffe003f]
+[    0.023146] ACPI: Reserving APIC table memory at [mem 0xbffe1960-0xbffe19ef]
+[    0.023148] ACPI: Reserving HPET table memory at [mem 0xbffe19f0-0xbffe1a27]
+[    0.023150] ACPI: Reserving SRAT table memory at [mem 0xbffe1a28-0xbffe1b37]
+[    0.023151] ACPI: Reserving SLIT table memory at [mem 0xbffe1b38-0xbffe1b67]
+[    0.023152] ACPI: Reserving WAET table memory at [mem 0xbffe1b68-0xbffe1b8f]
+[    0.024698] ACPI: SRAT: Node 0 PXM 0 [mem 0x00000000-0x0009ffff]
+[    0.024704] ACPI: SRAT: Node 0 PXM 0 [mem 0x00100000-0xbfffffff]
+[    0.024706] ACPI: SRAT: Node 0 PXM 0 [mem 0x100000000-0x22fffffff]
+[    0.024708] ACPI: SRAT: Node 1 PXM 1 [mem 0x230000000-0x23fffffff]
+[    0.024726] NUMA: Node 0 [mem 0x00001000-0x0009ffff] + [mem 0x00100000-0xbfffffff] -> [mem 0x00001000-0xbfffffff]
+[    0.024731] NUMA: Node 0 [mem 0x00001000-0xbfffffff] + [mem 0x100000000-0x22fffffff] -> [mem 0x00001000-0x22fffffff]
+[    0.024758] NODE_DATA(0) allocated [mem 0x22ffd5c40-0x22fffffff]
+[    0.025492] NODE_DATA(1) allocated [mem 0x23ffd2c40-0x23fffcfff]
+[    0.054569] ACPI: PM-Timer IO Port: 0x608
+[    0.054606] ACPI: LAPIC_NMI (acpi_id[0xff] dfl dfl lint[0x1])
+[    0.054712] IOAPIC[0]: apic_id 0, version 17, address 0xfec00000, GSI 0-23
+[    0.054721] ACPI: INT_SRC_OVR (bus 0 bus_irq 0 global_irq 2 dfl dfl)
+[    0.054725] ACPI: INT_SRC_OVR (bus 0 bus_irq 5 global_irq 5 high level)
+[    0.054728] ACPI: INT_SRC_OVR (bus 0 bus_irq 9 global_irq 9 high level)
+[    0.054737] ACPI: INT_SRC_OVR (bus 0 bus_irq 10 global_irq 10 high level)
+[    0.054740] ACPI: INT_SRC_OVR (bus 0 bus_irq 11 global_irq 11 high level)
+[    0.054751] ACPI: Using ACPI (MADT) for SMP configuration information
+[    0.054755] ACPI: HPET id: 0x8086a201 base: 0xfed00000
+[    0.054768] TSC deadline timer available
+[    0.054774] CPU topo: Max. logical packages:   1
+[    0.054776] CPU topo: Max. logical nodes:      1
+[    0.054777] CPU topo: Num. nodes per package:  1
+[    0.054782] CPU topo: Max. logical dies:       1
+[    0.054783] CPU topo: Max. dies per package:   1
+[    0.054790] CPU topo: Max. threads per core:   1
+[    0.054792] CPU topo: Num. cores per package:     4
+[    0.054793] CPU topo: Num. threads per package:   4
+[    0.054794] CPU topo: Allowing 4 present CPUs plus 0 hotplug CPUs
+[    0.054829] kvm-guest: APIC: eoi() replaced with kvm_guest_apic_eoi_write()
+[    0.054859] kvm-guest: KVM setup pv remote TLB flush
+[    0.054866] kvm-guest: setup PV sched yield
+[    0.054886] PM: hibernation: Registered nosave memory: [mem 0x00000000-0x00000fff]
+[    0.054890] PM: hibernation: Registered nosave memory: [mem 0x0009f000-0x000fffff]
+[    0.054892] PM: hibernation: Registered nosave memory: [mem 0xbffdd000-0xffffffff]
+[    0.054896] [gap 0xc0000000-0xfeffbfff] available for PCI devices
+[    0.054898] Booting paravirtualized kernel on KVM
+[    0.054906] clocksource: refined-jiffies: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 7645519600211568 ns
+[    0.112793] Zone ranges:
+[    0.112800]   DMA      [mem 0x0000000000001000-0x0000000000ffffff]
+[    0.112805]   DMA32    [mem 0x0000000001000000-0x00000000ffffffff]
+[    0.112808]   Normal   [mem 0x0000000100000000-0x000000023fffffff]
+[    0.112811]   Device   empty
+[    0.112813] Movable zone start for each node
+[    0.112818] Early memory node ranges
+[    0.112819]   node   0: [mem 0x0000000000001000-0x000000000009efff]
+[    0.112821]   node   0: [mem 0x0000000000100000-0x00000000bffdcfff]
+[    0.112824]   node   0: [mem 0x0000000100000000-0x000000022fffffff]
+[    0.112827]   node   1: [mem 0x0000000230000000-0x000000023fffffff]
+[    0.112829] Initmem setup node 0 [mem 0x0000000000001000-0x000000022fffffff]
+[    0.112847] Initmem setup node 1 [mem 0x0000000230000000-0x000000023fffffff]
+[    0.112858] On node 0, zone DMA: 1 pages in unavailable ranges
+[    0.112907] On node 0, zone DMA: 97 pages in unavailable ranges
+[    0.132897] On node 0, zone Normal: 35 pages in unavailable ranges
+[    0.133663] setup_percpu: NR_CPUS:8192 nr_cpumask_bits:4 nr_cpu_ids:4 nr_node_ids:2
+[    0.134753] percpu: Embedded 63 pages/cpu s221184 r8192 d28672 u524288
+[    0.134852] kvm-guest: PV spinlocks enabled
+[    0.134863] PV qspinlock hash table entries: 256 (order: 0, 4096 bytes, linear)
+[    0.134869] Kernel command line: root=/dev/vda rw console=ttyS0 nokaslr numa=on ltram_workload=redis interactive=0 ltram_run=2026-05-08/redis_xlong_zipf ltram_hist=1 ltram_redis_spec=workloadxlong_zipf.spec ltram_matmul_iters= ltram_gapbs_graph=20 ltram_gapbs_trials= ltram_gapbs_iters= ltram_gapbs_load_secs=
+[    0.135395] Unknown kernel command line parameters "nokaslr ltram_workload=redis interactive=0 ltram_run=2026-05-08/redis_xlong_zipf ltram_hist=1 ltram_redis_spec=workloadxlong_zipf.spec ltram_matmul_iters= ltram_gapbs_graph=20 ltram_gapbs_trials= ltram_gapbs_iters= ltram_gapbs_load_secs=", will be passed to user space.
+[    0.135439] random: crng init done
+[    0.135440] printk: log buffer data + meta data: 262144 + 1114112 = 1376256 bytes
+[    0.135681] software IO TLB: area num 4.
+[    0.175703] Fallback order for Node 0: 0 1 
+[    0.175714] Fallback order for Node 1: 1 0 
+[    0.175725] Built 2 zonelists, mobility grouping on.  Total pages: 2097019
+[    0.175728] Policy zone: Normal
+[    0.175733] mem auto-init: stack:off, heap alloc:on, heap free:off
+[    0.210886] SLUB: HWalign=64, Order=0-3, MinObjects=0, CPUs=4, Nodes=2
+[    0.210953] Kernel/User page tables isolation: enabled
+[    0.235372] ftrace: allocating 56390 entries in 222 pages
+[    0.235379] ftrace: allocated 222 pages with 6 groups
+[    0.236595] Dynamic Preempt: lazy
+[    0.237430] rcu: Preemptible hierarchical RCU implementation.
+[    0.237432] rcu: 	RCU restricting CPUs from NR_CPUS=8192 to nr_cpu_ids=4.
+[    0.237436] 	Trampoline variant of Tasks RCU enabled.
+[    0.237437] 	Rude variant of Tasks RCU enabled.
+[    0.237438] 	Tracing variant of Tasks RCU enabled.
+[    0.237439] rcu: RCU calculated value of scheduler-enlistment delay is 25 jiffies.
+[    0.237441] rcu: Adjusting geometry for rcu_fanout_leaf=16, nr_cpu_ids=4
+[    0.237465] RCU Tasks: Setting shift to 2 and lim to 1 rcu_task_cb_adjust=1 rcu_task_cpu_ids=4.
+[    0.237469] RCU Tasks Rude: Setting shift to 2 and lim to 1 rcu_task_cb_adjust=1 rcu_task_cpu_ids=4.
+[    0.246158] NR_IRQS: 524544, nr_irqs: 456, preallocated irqs: 16
+[    0.246517] rcu: srcu_init: Setting srcu_struct sizes based on contention.
+[   18.240513] Console: colour VGA+ 80x25
+[   18.272495] printk: legacy console [ttyS0] enabled
+[   26.843230] mempolicy: Enabling automatic NUMA balancing. Configure with numa_balancing= or the kernel.numa_balancing sysctl
+[   26.864335] ACPI: Core revision 20251212
+[   26.875855] clocksource: hpet: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 19112604467 ns
+[   26.893536] APIC: Switch to symmetric I/O mode setup
+[   26.898409] x2apic enabled
+[   26.902502] APIC: Switched APIC routing to: physical x2apic
+[   26.914329] kvm-guest: APIC: send_IPI_mask() replaced with kvm_send_ipi_mask()
+[   26.928313] kvm-guest: APIC: send_IPI_mask_allbutself() replaced with kvm_send_ipi_mask_allbutself()
+[   26.947316] kvm-guest: setup PV IPIs
+[   26.954448] ..TIMER: vector=0x30 apic1=0 pin1=2 apic2=-1 pin2=-1
+[   26.969011] clocksource: tsc-early: mask: 0xffffffffffffffff max_cycles: 0x19f2211c0f7, max_idle_ns: 440795242338 ns
+[   26.993079] Calibrating delay loop (skipped) preset value.. 3599.98 BogoMIPS (lpj=7199964)
+[   26.997303] x86/cpu: User Mode Instruction Prevention (UMIP) activated
+[   27.001221] Last level iTLB entries: 4KB 0, 2MB 0, 4MB 0
+[   27.005073] Last level dTLB entries: 4KB 0, 2MB 0, 4MB 0, 1GB 0
+[   27.005095] mitigations: Enabled attack vectors: user_kernel, user_user, guest_host, guest_guest, SMT mitigations: auto
+[   27.009090] Speculative Store Bypass: Mitigation: Speculative Store Bypass disabled via prctl
+[   27.013081] Spectre V2 : Mitigation: Retpolines
+[   27.017080] ITS: Mitigation: Aligned branch/return thunks
+[   27.021080] MDS: Mitigation: Clear CPU buffers
+[   27.025079] Spectre V1 : Mitigation: usercopy/swapgs barriers and __user pointer sanitization
+[   27.029080] Spectre V2 : Spectre v2 / SpectreRSB: Filling RSB on context switch and VMEXIT
+[   27.033079] Spectre V2 : Enabling Restricted Speculation for firmware calls
+[   27.037082] Spectre V2 : mitigation: Enabling conditional Indirect Branch Prediction Barrier
+[   27.041081] active return thunk: its_return_thunk
+[   27.045103] x86/fpu: Supporting XSAVE feature 0x001: 'x87 floating point registers'
+[   27.049079] x86/fpu: Supporting XSAVE feature 0x002: 'SSE registers'
+[   27.053079] x86/fpu: Supporting XSAVE feature 0x004: 'AVX registers'
+[   27.057081] x86/fpu: xstate_offset[2]:  576, xstate_sizes[2]:  256
+[   27.061079] x86/fpu: Enabled xstate features 0x7, context size is 832 bytes, using 'standard' format.
+[   27.110997] Freeing SMP alternatives memory: 52K
+[   27.113082] pid_max: default: 32768 minimum: 301
+[   27.117307] landlock: Up and running.
+[   27.121078] Yama: becoming mindful.
+[   27.125243] AppArmor: AppArmor initialized
+[   27.132714] Dentry cache hash table entries: 1048576 (order: 11, 8388608 bytes, vmalloc hugepage)
+[   27.134870] Inode-cache hash table entries: 524288 (order: 10, 4194304 bytes, vmalloc hugepage)
+[   27.137175] Mount-cache hash table entries: 16384 (order: 5, 131072 bytes, vmalloc)
+[   27.141121] Mountpoint-cache hash table entries: 16384 (order: 5, 131072 bytes, vmalloc)
+[   27.145277] VFS: Finished mounting rootfs on nullfs
+[   27.157073] smpboot: CPU0: Intel(R) Xeon(R) CPU E5-2403 v2 @ 1.80GHz (family: 0x6, model: 0x3e, stepping: 0x4)
+[   27.157639] Performance Events: IvyBridge events, full-width counters, Intel PMU driver.
+[   27.161101] ... version:                   2
+[   27.165082] ... bit width:                 48
+[   27.169085] ... generic counters:          8
+[   27.173083] ... generic bitmap:            00000000000000ff
+[   27.177082] ... fixed-purpose counters:    3
+[   27.181082] ... fixed-purpose bitmap:      0000000000000007
+[   27.185083] ... value mask:                0000ffffffffffff
+[   27.189083] ... max period:                00007fffffffffff
+[   27.193083] ... global_ctrl mask:          00000007000000ff
+[   27.197623] signal: max sigframe size: 1776
+[   27.201166] rcu: Hierarchical SRCU implementation.
+[   27.205092] rcu: 	Max phase no-delay instances is 1000.
+[   27.209228] Timer migration: 2 hierarchy levels; 8 children per group; 1 crossnode level
+[   27.223196] smp: Bringing up secondary CPUs ...
+[   27.225436] smpboot: x86: Booting SMP configuration:
+[   27.229104] .... node  #0, CPUs:      #1 #2 #3
+[   27.230057] smp: Brought up 2 nodes, 4 CPUs
+[   27.237089] smpboot: Total of 4 processors activated (14399.92 BogoMIPS)
+[   27.241512] Memory: 8113520K/8388076K available (20861K kernel code, 4686K rwdata, 14632K rodata, 5240K init, 6172K bss, 254732K reserved, 0K cma-reserved)
+[   27.245932] devtmpfs: initialized
+[   27.246986] x86/mm: Memory block size: 128MB
+[   27.253477] clocksource: jiffies: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 7645041785100000 ns
+[   27.257125] posixtimers hash table entries: 2048 (order: 3, 32768 bytes, vmalloc)
+[   27.261111] futex hash table entries: 512 (32768 bytes on 2 NUMA nodes, total 64 KiB, linear).
+[   27.266044] PM: RTC time: 20:59:06, date: 2026-05-08
+[   27.272032] NET: Registered PF_NETLINK/PF_ROUTE protocol family
+[   27.273802] DMA: preallocated 1024 KiB GFP_KERNEL pool for atomic allocations
+[   27.278376] DMA: preallocated 1024 KiB GFP_KERNEL|GFP_DMA pool for atomic allocations
+[   27.281385] DMA: preallocated 1024 KiB GFP_KERNEL|GFP_DMA32 pool for atomic allocations
+[   27.285119] audit: initializing netlink subsys (disabled)
+[   27.289927] audit: type=2000 audit(1778273919.835:1): state=initialized audit_enabled=0 res=1
+[   27.289927] thermal_sys: Registered thermal governor 'fair_share'
+[   27.293084] thermal_sys: Registered thermal governor 'bang_bang'
+[   27.297087] thermal_sys: Registered thermal governor 'step_wise'
+[   27.301089] thermal_sys: Registered thermal governor 'user_space'
+[   27.305084] thermal_sys: Registered thermal governor 'power_allocator'
+[   27.309118] cpuidle: using governor ladder
+[   27.317103] cpuidle: using governor menu
+[   27.321572] acpiphp: ACPI Hot Plug PCI Controller Driver version: 0.5
+[   27.326194] PCI: Using configuration type 1 for base access
+[   27.329325] core: PMU erratum BJ122, BV98, HSD29 workaround disabled, HT off
+[   27.333187] kprobes: kprobe jump-optimization is enabled. All kprobes are optimized if possible.
+[   27.345105] HugeTLB: registered 1.00 GiB page size, pre-allocated 0 pages
+[   27.365101] HugeTLB: 16380 KiB vmemmap can be freed for a 1.00 GiB page
+[   27.377089] HugeTLB: registered 2.00 MiB page size, pre-allocated 0 pages
+[   27.395436] HugeTLB: 28 KiB vmemmap can be freed for a 2.00 MiB page
+[   27.414922] ACPI: Added _OSI(Module Device)
+[   27.421087] ACPI: Added _OSI(Processor Device)
+[   27.423443] ACPI: Added _OSI(Processor Aggregator Device)
+[   27.426643] ACPI: 1 ACPI AML tables successfully acquired and loaded
+[   27.438771] ACPI: \_SB_: platform _OSC: OS support mask [002e7eff]
+[   27.441375] ACPI: Interpreter enabled
+[   27.443287] ACPI: PM: (supports S0 S3 S4 S5)
+[   27.449084] ACPI: Using IOAPIC for interrupt routing
+[   27.465123] PCI: Using host bridge windows from ACPI; if necessary, use "pci=nocrs" and report a bug
+[   27.473085] PCI: Using E820 reservations for host bridge windows
+[   27.481318] ACPI: Enabled 2 GPEs in block 00 to 0F
+[   27.502962] ACPI: PCI Root Bridge [PCI0] (domain 0000 [bus 00-ff])
+[   27.521094] acpi PNP0A03:00: _OSC: OS supports [ASPM ClockPM Segments MSI EDR HPX-Type3]
+[   27.537088] acpi PNP0A03:00: _OSC: not requesting OS control; OS requires [ExtendedConfig ASPM ClockPM MSI]
+[   27.565098] acpi PNP0A03:00: _OSC: platform retains control of PCIe features (AE_ERROR)
+[   27.585100] acpi PNP0A03:00: fail to add MMCONFIG information, can't access extended configuration space under this bridge
+[   27.618407] acpiphp: Slot [3] registered
+[   27.629196] acpiphp: Slot [4] registered
+[   27.645309] acpiphp: Slot [5] registered
+[   27.653834] acpiphp: Slot [6] registered
+[   27.681147] acpiphp: Slot [7] registered
+[   27.717180] acpiphp: Slot [8] registered
+[   27.749173] acpiphp: Slot [9] registered
+[   27.765757] acpiphp: Slot [10] registered
+[   27.768633] acpiphp: Slot [11] registered
+[   27.776734] acpiphp: Slot [12] registered
+[   27.801190] acpiphp: Slot [13] registered
+[   27.833107] acpiphp: Slot [14] registered
+[   27.849323] acpiphp: Slot [15] registered
+[   27.913354] acpiphp: Slot [16] registered
+[   27.953109] acpiphp: Slot [17] registered
+[   27.973230] acpiphp: Slot [18] registered
+[   28.008050] acpiphp: Slot [19] registered
+[   28.053238] acpiphp: Slot [20] registered
+[   28.077187] acpiphp: Slot [21] registered
+[   28.101406] acpiphp: Slot [22] registered
+[   28.129101] acpiphp: Slot [23] registered
+[   28.165265] acpiphp: Slot [24] registered
+[   28.185145] acpiphp: Slot [25] registered
+[   28.187319] acpiphp: Slot [26] registered
+[   28.219429] acpiphp: Slot [27] registered
+[   28.254626] acpiphp: Slot [28] registered
+[   28.301294] acpiphp: Slot [29] registered
+[   28.325214] acpiphp: Slot [30] registered
+[   28.557150] acpiphp: Slot [31] registered
+[   28.714044] PCI host bridge to bus 0000:00
+[   28.749087] pci_bus 0000:00: Unknown NUMA node; performance will be reduced
+[   28.805114] pci_bus 0000:00: root bus resource [io  0x0000-0x0cf7 window]
+[   28.817087] pci_bus 0000:00: root bus resource [io  0x0d00-0xffff window]
+[   28.841088] pci_bus 0000:00: root bus resource [mem 0x000a0000-0x000bffff window]
+[   28.844868] pci_bus 0000:00: root bus resource [mem 0xc0000000-0xfebfffff window]
+[   28.865089] pci_bus 0000:00: root bus resource [mem 0x240000000-0x2bfffffff window]
+[   28.869040] pci_bus 0000:00: root bus resource [bus 00-ff]
+[   28.869256] pci 0000:00:00.0: [8086:1237] type 00 class 0x060000 conventional PCI endpoint
+[   28.888087] pci 0000:00:01.0: [8086:7000] type 00 class 0x060100 conventional PCI endpoint
+[   28.888087] pci 0000:00:01.1: [8086:7010] type 00 class 0x010180 conventional PCI endpoint
+[   28.926153] pci 0000:00:01.1: BAR 4 [io  0xc160-0xc16f]
+[   28.928993] pci 0000:00:01.1: BAR 0 [io  0x01f0-0x01f7]: legacy IDE quirk
+[   28.929085] pci 0000:00:01.1: BAR 1 [io  0x03f6]: legacy IDE quirk
+[   28.932363] pci 0000:00:01.1: BAR 2 [io  0x0170-0x0177]: legacy IDE quirk
+[   28.937084] pci 0000:00:01.1: BAR 3 [io  0x0376]: legacy IDE quirk
+[   28.953604] pci 0000:00:01.3: [8086:7113] type 00 class 0x068000 conventional PCI endpoint
+[   28.969477] pci 0000:00:01.3: quirk: [io  0x0600-0x063f] claimed by PIIX4 ACPI
+[   28.973115] pci 0000:00:01.3: quirk: [io  0x0700-0x070f] claimed by PIIX4 SMB
+[   28.985083] pci 0000:00:01.3: quirk_piix4_acpi+0x0/0x180 took 11718 usecs
+[   29.017165] pci 0000:00:02.0: [1234:1111] type 00 class 0x030000 conventional PCI endpoint
+[   29.050736] pci 0000:00:02.0: BAR 0 [mem 0xfd000000-0xfdffffff pref]
+[   29.054860] pci 0000:00:02.0: BAR 2 [mem 0xfebb0000-0xfebb0fff]
+[   29.065084] pci 0000:00:02.0: ROM [mem 0xfeba0000-0xfebaffff pref]
+[   29.081063] pci 0000:00:02.0: Video device with shadowed ROM at [mem 0x000c0000-0x000dffff]
+[   29.093085] pci 0000:00:02.0: pci_fixup_video+0x0/0x120 took 11718 usecs
+[   29.124163] pci 0000:00:03.0: [8086:100e] type 00 class 0x020000 conventional PCI endpoint
+[   29.172758] pci 0000:00:03.0: BAR 0 [mem 0xfeb80000-0xfeb9ffff]
+[   29.177136] pci 0000:00:03.0: BAR 1 [io  0xc080-0xc0bf]
+[   29.183444] pci 0000:00:03.0: ROM [mem 0xfeb00000-0xfeb7ffff pref]
+[   29.238463] pci 0000:00:04.0: [1af4:1009] type 00 class 0x000200 conventional PCI endpoint
+[   29.252706] pci 0000:00:04.0: BAR 0 [io  0xc0c0-0xc0ff]
+[   29.257116] pci 0000:00:04.0: BAR 1 [mem 0xfebb1000-0xfebb1fff]
+[   29.269085] pci 0000:00:04.0: BAR 4 [mem 0xfe000000-0xfe003fff 64bit pref]
+[   29.310724] pci 0000:00:05.0: [1af4:1009] type 00 class 0x000200 conventional PCI endpoint
+[   29.320942] pci 0000:00:05.0: BAR 0 [io  0xc100-0xc13f]
+[   29.321118] pci 0000:00:05.0: BAR 1 [mem 0xfebb2000-0xfebb2fff]
+[   29.339167] pci 0000:00:05.0: BAR 4 [mem 0xfe004000-0xfe007fff 64bit pref]
+[   29.425410] pci 0000:00:06.0: [1af4:1009] type 00 class 0x000200 conventional PCI endpoint
+[   29.449225] pci 0000:00:06.0: BAR 0 [io  0xc140-0xc15f]
+[   29.461085] pci 0000:00:06.0: BAR 1 [mem 0xfebb3000-0xfebb3fff]
+[   29.467978] pci 0000:00:06.0: BAR 4 [mem 0xfe008000-0xfe00bfff 64bit pref]
+[   29.541760] pci 0000:00:07.0: [1af4:1001] type 00 class 0x010000 conventional PCI endpoint
+[   29.572712] pci 0000:00:07.0: BAR 0 [io  0xc000-0xc07f]
+[   29.581085] pci 0000:00:07.0: BAR 1 [mem 0xfebb4000-0xfebb4fff]
+[   29.588328] pci 0000:00:07.0: BAR 4 [mem 0xfe00c000-0xfe00ffff 64bit pref]
+[   29.768166] ACPI: PCI: Interrupt link LNKA configured for IRQ 10
+[   29.774252] ACPI: PCI: Interrupt link LNKB configured for IRQ 10
+[   29.778610] ACPI: PCI: Interrupt link LNKC configured for IRQ 11
+[   29.793551] ACPI: PCI: Interrupt link LNKD configured for IRQ 11
+[   29.798845] ACPI: PCI: Interrupt link LNKS configured for IRQ 9
+[   29.813115] iommu: Default domain type: Translated
+[   29.815971] iommu: DMA domain TLB invalidation policy: lazy mode
+[   29.825760] SCSI subsystem initialized
+[   29.829220] ACPI: bus type USB registered
+[   29.831595] usbcore: registered new interface driver usbfs
+[   29.837125] usbcore: registered new interface driver hub
+[   29.845110] usbcore: registered new device driver usb
+[   29.853148] pps_core: LinuxPPS API ver. 1 registered
+[   29.861084] pps_core: Software ver. 5.3.6 - Copyright 2005-2007 Rodolfo Giometti <giometti@linux.it>
+[   29.865092] PTP clock support registered
+[   29.881854] EDAC MC: Ver: 3.0.0
+[   29.893501] NetLabel: Initializing
+[   29.897083] NetLabel:  domain hash size = 128
+[   29.905083] NetLabel:  protocols = UNLABELED CIPSOv4 CALIPSO
+[   29.908498] NetLabel:  unlabeled traffic allowed by default
+[   29.917301] PCI: Using ACPI for IRQ routing
+[   29.929001] e820: register RAM buffer resource [mem 0x0009fc00-0x0009ffff]
+[   29.933093] e820: register RAM buffer resource [mem 0xbffdd000-0xbfffffff]
+[   29.947485] pci 0000:00:02.0: vgaarb: setting as boot VGA device
+[   29.949073] pci 0000:00:02.0: vgaarb: bridge control possible
+[   29.949073] pci 0000:00:02.0: vgaarb: VGA device added: decodes=io+mem,owns=io+mem,locks=none
+[   29.965086] vgaarb: loaded
+[   29.973432] hpet0: at MMIO 0xfed00000, IRQs 2, 8, 0
+[   29.977084] hpet0: 3 comparators, 64-bit 100.000000 MHz counter
+[   29.993279] clocksource: Switched to clocksource kvm-clock
+[   29.999068] VFS: Disk quotas dquot_6.6.0
+[   30.004886] VFS: Dquot-cache hash table entries: 512 (order 0, 4096 bytes)
+[   30.013024] netfs: FS-Cache loaded
+[   30.021976] AppArmor: AppArmor Filesystem Enabled
+[   30.034812] pnp: PnP ACPI init
+[   30.044715] pnp: PnP ACPI: found 6 devices
+[   30.085534] clocksource: acpi_pm: mask: 0xffffff max_cycles: 0xffffff, max_idle_ns: 2085701024 ns
+[   30.090850] NET: Registered PF_INET protocol family
+[   30.104776] IP idents hash table entries: 131072 (order: 8, 1048576 bytes, vmalloc)
+[   30.149564] tcp_listen_portaddr_hash hash table entries: 4096 (order: 4, 65536 bytes, vmalloc)
+[   30.157444] Table-perturb hash table entries: 65536 (order: 6, 262144 bytes, vmalloc)
+[   30.169936] TCP established hash table entries: 65536 (order: 7, 524288 bytes, vmalloc)
+[   30.179450] TCP bind hash table entries: 65536 (order: 9, 2097152 bytes, vmalloc hugepage)
+[   30.217552] TCP: Hash tables configured (established 65536 bind 65536)
+[   30.235131] MPTCP token hash table entries: 8192 (order: 6, 196608 bytes, vmalloc)
+[   30.255431] UDP hash table entries: 4096 (order: 6, 262144 bytes, vmalloc)
+[   30.279024] UDP-Lite hash table entries: 4096 (order: 6, 262144 bytes, vmalloc)
+[   30.288914] NET: Registered PF_UNIX/PF_LOCAL protocol family
+[   30.310102] NET: Registered PF_XDP protocol family
+[   30.316449] pci_bus 0000:00: resource 4 [io  0x0000-0x0cf7 window]
+[   30.324569] pci_bus 0000:00: resource 5 [io  0x0d00-0xffff window]
+[   30.373775] pci_bus 0000:00: resource 6 [mem 0x000a0000-0x000bffff window]
+[   30.385524] pci_bus 0000:00: resource 7 [mem 0xc0000000-0xfebfffff window]
+[   30.660168] pci_bus 0000:00: resource 8 [mem 0x240000000-0x2bfffffff window]
+[   30.793304] pci 0000:00:01.0: PIIX3: Enabling Passive Release
+[   30.802306] pci 0000:00:00.0: quirk_passive_release+0x0/0xb0 took 12541 usecs
+[   30.817264] pci 0000:00:00.0: Limiting direct PCI/PCI transfers
+[   30.829493] pci 0000:00:00.0: quirk_natoma+0x0/0x40 took 11952 usecs
+[   30.855922] PCI: CLS 0 bytes, default 64
+[   30.881413] PCI-DMA: Using software bounce buffering for IO (SWIOTLB)
+[   30.898938] software IO TLB: mapped [mem 0x00000000bbfdd000-0x00000000bffdd000] (64MB)
+[   30.916864] clocksource: tsc: mask: 0xffffffffffffffff max_cycles: 0x19f2211c0f7, max_idle_ns: 440795242338 ns
+[   30.929864] Initialise system trusted keyrings
+[   31.085494] Key type blacklist registered
+[   31.165623] workingset: timestamp_bits=36 max_order=21 bucket_order=0
+[   31.216406] squashfs: version 4.0 (2009/01/31) Phillip Lougher
+[   31.269158] fuse: init (API version 7.45)
+[   31.293601] 9p: Installing v9fs 9p2000 file system support
+[   31.297225] integrity: Platform Keyring initialized
+[   31.377257] Key type asymmetric registered
+[   31.466883] Asymmetric key parser 'x509' registered
+[   31.485441] Block layer SCSI generic (bsg) driver version 0.4 loaded (major 242)
+[   31.512085] io scheduler mq-deadline registered
+[   31.524174] ledtrig-cpu: registered to indicate activity on CPUs
+[   31.530261] input: Power Button as /devices/platform/LNXPWRBN:00/input/input0
+[   31.549115] ACPI: button: Power Button [PWRF]
+[   31.621290] ACPI: \_SB_.LNKD: Enabled at IRQ 11
+[   31.759772] ACPI: \_SB_.LNKA: Enabled at IRQ 10
+[   31.840889] ACPI: \_SB_.LNKB: Enabled at IRQ 10
+[   32.448823] ACPI: \_SB_.LNKC: Enabled at IRQ 11
+[   32.735365] Serial: 8250/16550 driver, 32 ports, IRQ sharing enabled
+[   34.824661] 00:04: ttyS0 at I/O 0x3f8 (irq = 4, base_baud = 115200) is a 16550A
+[   36.781124] Linux agpgart interface v0.103
+[   37.498484] loop: module loaded
+[   37.857231] virtio_blk virtio3: 4/0/0 default/read/poll queues
+[   37.869333] virtio_blk virtio3: [vda] 122880 512-byte logical blocks (62.9 MB/60.0 MiB)
+[   37.944478] scsi host0: ata_piix
+[   37.949294] scsi host1: ata_piix
+[   37.953695] ata1: PATA max MWDMA2 cmd 0x1f0 ctl 0x3f6 bmdma 0xc160 irq 14 lpm-pol 0
+[   37.963706] ata2: PATA max MWDMA2 cmd 0x170 ctl 0x376 bmdma 0xc168 irq 15 lpm-pol 0
+[   37.974393] tun: Universal TUN/TAP device driver, 1.6
+[   38.228925] PPP generic driver version 2.4.2
+[   38.392867] ata2: found unknown device (class 0)
+[   38.911308] VFIO - User Level meta-driver version: 0.3
+[   40.702089] i8042: PNP: PS/2 Controller [PNP0303:KBD,PNP0f13:MOU] at 0x60,0x64 irq 1,12
+[   41.172873] ata2.00: ATAPI: QEMU DVD-ROM, 2.5+, max UDMA/100
+[   42.466133] serio: i8042 KBD port at 0x60,0x64 irq 1
+[   44.074651] serio: i8042 AUX port at 0x60,0x64 irq 12
+[   44.170956] scsi 1:0:0:0: CD-ROM            QEMU     QEMU DVD-ROM     2.5+ PQ: 0 ANSI: 5
+[   44.545650] mousedev: PS/2 mouse device common for all mice
+[   44.634528] rtc_cmos 00:05: RTC can wake from S4
+[   44.656981] rtc_cmos 00:05: registered as rtc0
+[   44.663286] rtc_cmos 00:05: setting system clock to 2026-05-08T20:59:24 UTC (1778273964)
+[   44.663928] input: AT Translated Set 2 keyboard as /devices/platform/i8042/serio0/input/input1
+[   44.717046] rtc_cmos 00:05: alarms up to one day, y3k, 242 bytes nvram, hpet irqs
+[   45.132891] i2c_dev: i2c /dev entries driver
+[   45.494768] device-mapper: core: CONFIG_IMA_DISABLE_HTABLE is disabled. Duplicate IMA measurements will not be recorded in the IMA log.
+[   47.572749] device-mapper: uevent: version 1.0.3
+[   48.397011] device-mapper: ioctl: 4.50.0-ioctl (2025-04-28) initialised: dm-devel@lists.linux.dev
+[   49.890985] intel_pstate: CPU model not supported
+[   50.834790] drop_monitor: Initializing network drop monitor service
+[   51.228725] sr 1:0:0:0: [sr0] scsi3-mmc drive: 4x/4x cd/rw xa/form2 tray
+[   51.860966] NET: Registered PF_INET6 protocol family
+[   53.168810] cdrom: Uniform CD-ROM driver Revision: 3.20
+[   54.159065] Segment Routing with IPv6
+[   55.984719] In-situ OAM (IOAM) with IPv6
+[   56.716782] NET: Registered PF_PACKET protocol family
+[   57.425704] 9pnet: Installing 9P2000 support
+[   58.394325] sr 1:0:0:0: Attached scsi generic sg0 type 5
+[   60.459186] Key type dns_resolver registered
+[   60.549480] IPI shorthand broadcast: enabled
+[   60.725460] sched_clock: Marking stable (34008011667, 26714539832)->(61866386185, -1143834686)
+[   60.734165] registered taskstats version 1
+[   61.305650] Loading compiled-in X.509 certificates
+[   61.832125] Loaded X.509 cert 'Build time autogenerated kernel key: a9be1dadcc1e04141b909bd5be0e806c6017220b'
+[   63.554671] Demotion targets for Node 0: null
+[   64.269823] Demotion targets for Node 1: null
+[   64.952984] Key type .fscrypt registered
+[   65.502062] Key type fscrypt-provisioning registered
+[   66.392340] Key type encrypted registered
+[   66.754697] AppArmor: AppArmor sha256 policy hashing enabled
+[   67.344578] ima: No TPM chip found, activating TPM-bypass!
+[   67.843760] Loading compiled-in module X.509 certificates
+[   68.311222] Loaded X.509 cert 'Build time autogenerated kernel key: a9be1dadcc1e04141b909bd5be0e806c6017220b'
+[   69.292645] ima: Allocated hash algorithm: sha1
+[   69.662696] ima: No architecture policies found
+[   70.061136] evm: Initialising EVM extended attributes:
+[   70.219542] evm: security.selinux
+[   70.555930] evm: security.SMACK64
+[   70.958815] evm: security.SMACK64EXEC
+[   71.436741] evm: security.SMACK64TRANSMUTE
+[   72.232657] evm: security.SMACK64MMAP
+[   73.120642] evm: security.apparmor
+[   73.804630] evm: security.ima
+[   74.412924] evm: security.capability
+[   75.171879] evm: HMAC attrs: 0x1
+[   75.721312] PM:   Magic number: 10:160:1003
+[   76.588682] input input0: hash matches
+[   77.221532] vc vcs: hash matches
+[   77.728609] rtc_cmos 00:05: hash matches
+[   78.608653] memory memory42: hash matches
+[   79.429129] RAS: Correctable Errors collector initialized.
+[   80.206051] clk: Disabling unused clocks
+[   80.209685] PM: genpd: Disabling unused power domains
+[   80.215438] md: Waiting for all devices to be available before autodetect
+[   80.217781] md: If you don't use raid, use raid=noautodetect
+[   80.229084] md: Autodetecting RAID arrays.
+[   80.231633] md: autorun ...
+[   80.232707] md: ... autorun DONE.
+[   80.252992] EXT4-fs (vda): mounting ext2 file system using the ext4 subsystem
+[   80.259665] EXT4-fs (vda): warning: mounting unchecked fs, running e2fsck is recommended
+[   80.288651] EXT4-fs (vda): mounted filesystem 006f6336-ba6f-4541-a88f-9c4b17f859c5 r/w without journal. Quota mode: none.
+[   80.294314] VFS: Mounted root (ext2 filesystem) on device 253:0.
+[   80.296703] devtmpfs: mounted
+[   80.298004] VFS: Pivoted into new rootfs
+[   80.311476] Freeing unused decrypted memory: 2036K
+[   80.317494] Freeing unused kernel image (initmem) memory: 5240K
+[   80.324805] Write protecting the kernel read-only data: 38912k
+[   80.329935] Freeing unused kernel image (text/rodata gap) memory: 1664K
+[   80.344343] Freeing unused kernel image (rodata/data gap) memory: 1752K
+[   80.426961] x86/mm: Checked W+X mappings: passed, no W+X pages found.
+[   80.739280] x86/mm: Checking user space page tables
+[   81.236910] x86/mm: Checked W+X mappings: passed, no W+X pages found.
+[   81.488662] Run /sbin/init as init process
+[   81.604866] EXT4-fs (vda): re-mounted 006f6336-ba6f-4541-a88f-9c4b17f859c5.
+Seeding 256 bits and crediting
+Saving 256 bits of creditable seed for next boot
+Starting syslogd: OK
+Starting klogd: OK
+Running sysctl: OK
+Starting loopback...
+Starting crond: OK
+Starting redis: OK
+Histogram mode: dirty_sweep will run alongside the workload.
+Run dir: /mnt/results/runs/2026-05-08/redis_xlong_zipf
+Kernel boot parameter requested workload: redis
+Starting Redis server on Node 0...
+redis-server pid=145
+Using YCSB workload spec: workloadxlong_zipf.spec
+[hist] dirty_sweep pid=308, target pid=145, out=dirty_sweep_load.csv
+Phase 1: Loading data into Redis...
+[hist] dirty_sweep stopped
+[hist] dirty_sweep pid=15159, target pid=145, out=dirty_sweep.csv
+Phase 2: Running operations...
+[ 1420.759210] clocksource: Long readout interval, skipping watchdog check: cs_nsec: 1032600676 wd_nsec: 1032600689
+[hist] dirty_sweep stopped
+Workload complete. Powering off...
+[ 2809.171718] ACPI: PM: Preparing to enter system sleep state S5
+[ 2809.619644] reboot: Power down
+Wrote 6 PNGs into /home/hsshim/projects/ltram-policy-bench/results/runs/2026-05-08/redis_xlong_zipf:
+  meminfo_plot.png              (sys, linear)
+  meminfo_log.png               (sys, log)
+  meminfo_per_metric_n0.png     (n0,    linear)
+  meminfo_per_metric_n0_log.png (n0,    log)
+  meminfo_per_metric_n0n1.png   (n0+n1, linear)
+  meminfo_per_metric_n0n1_log.png (n0+n1, log)
+Run: 2026-05-08/redis_xlong_zipf
+  total_sweeps=12518 duration=1382.12s interval=100ms
+  saturation rate: 10.0 writes/sec
+  Class 2 cut:  max_stab ≥ 6259  (50% of run)
+  Class 3/4 cut: max_stab ≥ 625  (5% of run)
+
+Four-class breakdown (555.6 MB total):
+  Class 1 (static-RO):          1734 pages      6.8 MB  (  1.2%)  — place at fault, no tracking
+  Class 2 (write-once):        44882 pages    175.3 MB  ( 31.6%)  — effectively static-RO after init, easy migrate
+  Class 3 (read-heavy):        95558 pages    373.3 MB  ( 67.2%)  — LRW queue with occasional re-migrate
+  Class 4 (write-heavy):          53 pages      0.2 MB  (  0.0%)  — stays on DRAM
+
+  LtRAM-confident (Class 1 + 2):         182.1 MB ( 32.8% of workload)
+  LtRAM-eligible  (Class 1 + 2 + 3):     555.4 MB (100.0% of workload)
+  DRAM-required   (Class 4):               0.2 MB (  0.0% of workload)
+  → with sufficient LtRAM, the LtRAM-eligible fraction could be displaced from DRAM
+
+Class 1 top VMAs:
+     688 pages  /usr/bin/redis-server
+     411 pages  /lib/libc.so.6
+     397 pages  /usr/lib/libstdc++.so.6.0.33
+     147 pages  /lib/libm.so.6
+      55 pages  /lib/ld-linux-x86-64.so.2
+      25 pages  /lib/libgcc_s.so.1
+
+Wrote dirty_hist_run.png, dirty_hist_full.png (if load CSV present), dirty_cdf.png, dirty_tiers.png, dirty_tiers_final.png to /home/hsshim/projects/ltram-policy-bench/results/runs/2026-05-08/redis_xlong_zipf
+/home/hsshim/projects/ltram-policy-bench/workloads/monitoring/_phase_data.py:346: FutureWarning: Downcasting object dtype arrays on .fillna, .ffill, .bfill is deprecated and will change in a future version. Call result.infer_objects(copy=False) instead. To opt-in to the future behavior, set `pd.set_option('future.no_silent_downcasting', True)`
+  merged["writable"]    = merged["writable"].fillna(True)  # load-only pages: assume writable
+Class 1 (static-RO, !VM_WRITE): 1734 pages (~6.8 MB) — placed at fault time, costs 1734 LtRAM writes one-shot (no speculation, no CoW)
+Class 2 (writable, LRW-managed): 140493 pages (~548.8 MB) — threshold policy decides per stability period
+Run: 2026-05-08/redis_xlong_zipf
+  total_sweeps   = 12518   (1382.1s)
+  total periods  = 3443441
+  mean length    = 515.7 sweeps (51.57s)
+  total RO-time  = 1775917283 sweeps × pages (177591728 page-seconds of LtRAM-eligible time)
+  endurance-budget crossover (5y, ≤100%): T=382.60s  migs=86,485  pages=29.9%  endurance=97.28%
+  efficiency-optimal T (max page-secs per migration): T=559.10s  migs=53,207  pages=25.3%  endurance=39.31%  (459 page-sec/write)
+  capacity-feasible threshold (page-seconds, ref only):  T = 96.7s
+  cluster-derived T (K-means in log-stability):
+    K=2: T =  11.00s   cluster centers (s) = [2.00  53.57]
+    K=3: T =  41.00s   cluster centers (s) = [1.40  13.76  120.24]
+    K=4: T =  71.00s   cluster centers (s) = [1.15  5.81  29.02  173.60]
+Wrote dirty_stability_{hist,cdf,costben*}.png and dirty_tiers_perepoch.png to /home/hsshim/projects/ltram-policy-bench/results/runs/2026-05-08/redis_xlong_zipf
+  cluster plot K list = [2, 3, 4]  (silhouette-best K=2, clustering on 1252 unique 1s bins)
+
+redis (2026-05-08/redis_xlong_zipf):
+  total_sweeps=12518  total_seconds=1382.1s  interval=100ms
+    K   boundary      T (s)     migrations   util %   NOR-budget % (this run)
+    2        1|2      11.00      1,519,007   171.9%                   0.0232%
+    3        1|2       5.00      1,913,310   183.1%                   0.0292%
+    3        2|3      41.00        830,206   135.5%                   0.0127%
+    4        1|2       3.00      2,150,150   187.6%                   0.0328%
+    4        2|3      13.00      1,432,907   168.6%                   0.0219%
+    4        3|4      71.00        572,160   112.6%                   0.0087%
+
+Wrote dirty_stability_clusters.png to /home/hsshim/projects/ltram-policy-bench/results/runs/2026-05-08/redis_xlong_zipf
+
+redis (2026-05-08/redis_xlong_zipf) — K-sweep profiling
+  total_sweeps=12518  total_seconds=1382.1s  interval=100ms
+  silhouette-best K = 2
+    K        inertia  silhouette  top T (s)   migrations   util %
+    2     5323576.69      0.5958       5.70    1,847,737   181.7%  ← best
+    3     2584814.76      0.5522      24.00    1,107,378   153.4%
+    4     1530916.50      0.5489      50.20      732,153   127.5%
+    5     1022101.79      0.5349      77.90      524,887   108.5%
+    6      712409.46      0.5338     138.50      296,083    82.1%
+    7      522685.32      0.5385     186.70      210,804    68.8%
+    8      405282.47      0.5342     264.80      137,642    54.2%
+    9      316419.77      0.5427     310.50      112,609    47.9%
+   10      251767.37      0.5587     359.20       93,743    42.4%
+
+Wrote dirty_stability_kelbow.png to /home/hsshim/projects/ltram-policy-bench/results/runs/2026-05-08/redis_xlong_zipf
+/home/hsshim/projects/ltram-policy-bench/workloads/monitoring/_phase_data.py:346: FutureWarning: Downcasting object dtype arrays on .fillna, .ffill, .bfill is deprecated and will change in a future version. Call result.infer_objects(copy=False) instead. To opt-in to the future behavior, set `pd.set_option('future.no_silent_downcasting', True)`
+  merged["writable"]    = merged["writable"].fillna(True)  # load-only pages: assume writable
+
+redis (2026-05-08/redis_xlong_zipf) — endurance decomposition
+  total_sweeps=12518  total_seconds=1382.1s
+
+     T (s)    final %    inter %  1-time writes        recur/y   5y endur %  10y endur %
+       1.0       5.3%      94.7%        139,272 58,753,645,644   4482.5474%   8965.0949%
+       5.0       6.9%      93.1%        132,000 42,762,124,486   3262.4912%   6524.9824%
+      10.0       8.0%      92.0%        125,383 35,247,894,832   2689.2010%   5378.4019%
+      30.0      10.6%      89.4%        106,159 22,087,746,750   1685.1613%   3370.3227%
+      60.0      13.6%      86.4%         88,094 14,118,597,722   1077.1635%   2154.3270%
+     120.0      20.1%      79.9%         67,834  7,023,029,064    535.8146%   1071.6292%
+     300.0      39.7%      60.3%         46,356  1,966,263,649    150.0140%    300.0280%
+
+Wrote dirty_stability_endurance_split.png to /home/hsshim/projects/ltram-policy-bench/results/runs/2026-05-08/redis_xlong_zipf
+[downsample] 142227 pages × 12518 sweeps → 1599 × 1565  (p_stride=89, t_stride=8)
+Wrote dirty_timeline_run.png, dirty_timeline_sorted_run.png, and dirty_timeline_active_run.png (114,484/142,227 active pages, 80.5%) to /home/hsshim/projects/ltram-policy-bench/results/runs/2026-05-08/redis_xlong_zipf
+  pages quiet for ≥50% of run: 34275
+redis (2026-05-08/redis_xlong_zipf) — LtRAM utilization simulation
+  total_sweeps=12518  total_seconds=1382.1s  n_pages=142227
+  T = 0s (instant):  peak 217.0% capacity  |  mean 185.5%  |  final 216.3%
+  T = 5.7s  (K=2 cluster top-boundary):  peak 204.1% capacity  |  mean 170.6%  |  final 200.0%
+  T = 24.0s  (K=3 cluster top-boundary):  peak 178.8% capacity  |  mean 142.5%  |  final 168.8%
+  T = 48.5s  (K=4 cluster top-boundary):  peak 155.2% capacity  |  mean 119.8%  |  final 143.5%
+
+Wrote dirty_ltram_utilization.png to /home/hsshim/projects/ltram-policy-bench/results/runs/2026-05-08/redis_xlong_zipf
+Run: 2026-05-08/redis_xlong_zipf
+  total_sweeps=24461 duration=2701.40s interval=100ms
+  saturation rate: 10.0 writes/sec
+  Class 2 cut:  max_stab ≥ 12230  (50% of run)
+  Class 3/4 cut: max_stab ≥ 1223  (5% of run)
+
+Four-class breakdown (566.9 MB total):
+  Class 1 (static-RO):          1734 pages      6.8 MB  (  1.2%)  — place at fault, no tracking
+  Class 2 (write-once):        29074 pages    113.6 MB  ( 20.0%)  — effectively static-RO after init, easy migrate
+  Class 3 (read-heavy):       101107 pages    394.9 MB  ( 69.7%)  — LRW queue with occasional re-migrate
+  Class 4 (write-heavy):       13212 pages     51.6 MB  (  9.1%)  — stays on DRAM
+
+  LtRAM-confident (Class 1 + 2):         120.3 MB ( 21.2% of workload)
+  LtRAM-eligible  (Class 1 + 2 + 3):     515.3 MB ( 90.9% of workload)
+  DRAM-required   (Class 4):              51.6 MB (  9.1% of workload)
+  → with sufficient LtRAM, the LtRAM-eligible fraction could be displaced from DRAM
+
+Class 1 top VMAs:
+     688 pages  /usr/bin/redis-server
+     411 pages  /lib/libc.so.6
+     397 pages  /usr/lib/libstdc++.so.6.0.33
+     147 pages  /lib/libm.so.6
+      55 pages  /lib/ld-linux-x86-64.so.2
+      25 pages  /lib/libgcc_s.so.1
+
+Wrote dirty_hist_run.png, dirty_hist_full.png (if load CSV present), dirty_cdf.png, dirty_tiers.png, dirty_tiers_final.png to /home/hsshim/projects/ltram-policy-bench/results/runs/2026-05-08/redis_xlong_zipf
+/home/hsshim/projects/ltram-policy-bench/workloads/monitoring/_phase_data.py:346: FutureWarning: Downcasting object dtype arrays on .fillna, .ffill, .bfill is deprecated and will change in a future version. Call result.infer_objects(copy=False) instead. To opt-in to the future behavior, set `pd.set_option('future.no_silent_downcasting', True)`
+  merged["writable"]    = merged["writable"].fillna(True)  # load-only pages: assume writable
+Class 1 (static-RO, !VM_WRITE): 1734 pages (~6.8 MB) — placed at fault time, costs 1734 LtRAM writes one-shot (no speculation, no CoW)
+Class 2 (writable, LRW-managed): 143393 pages (~560.1 MB) — threshold policy decides per stability period
+Run: 2026-05-08/redis_xlong_zipf
+  total_sweeps   = 24461   (2701.4s)
+  total periods  = 6801599
+  mean length    = 510.0 sweeps (51.00s)
+  total RO-time  = 3468743273 sweeps × pages (346874327 page-seconds of LtRAM-eligible time)
+  endurance-budget crossover (5y, ≤100%): T=393.10s  migs=141,296  pages=31.1%  endurance=92.11%
+  efficiency-optimal T (max page-secs per migration): T=1264.10s  migs=31,123  pages=19.2%  endurance=0.00%  (1119 page-sec/write)
+  capacity-feasible threshold (page-seconds, ref only):  T = 110.4s
+  cluster-derived T (K-means in log-stability):
+    K=2: T =  10.00s   cluster centers (s) = [1.88  48.16]
+    K=3: T =  40.00s   cluster centers (s) = [1.39  13.62  115.08]
+    K=4: T =  76.00s   cluster centers (s) = [1.15  6.01  30.97  185.04]
+Wrote dirty_stability_{hist,cdf,costben*}.png and dirty_tiers_perepoch.png to /home/hsshim/projects/ltram-policy-bench/results/runs/2026-05-08/redis_xlong_zipf
+  cluster plot K list = [2, 3, 4]  (silhouette-best K=2, clustering on 1796 unique 1s bins)
+
+redis (2026-05-08/redis_xlong_zipf):
+  total_sweeps=24461  total_seconds=2701.4s  interval=100ms
+    K   boundary      T (s)     migrations   util %   NOR-budget % (this run)
+    2        1|2      10.00      2,987,910   173.8%                   0.0456%
+    3        1|2       5.00      3,671,052   183.1%                   0.0560%
+    3        2|3      40.00      1,544,334   138.1%                   0.0236%
+    4        1|2       3.00      4,143,672   187.5%                   0.0632%
+    4        2|3      14.00      2,640,827   167.5%                   0.0403%
+    4        3|4      76.00        952,148   113.6%                   0.0145%
+
+Wrote dirty_stability_clusters.png to /home/hsshim/projects/ltram-policy-bench/results/runs/2026-05-08/redis_xlong_zipf
+
+redis (2026-05-08/redis_xlong_zipf) — K-sweep profiling
+  total_sweeps=24461  total_seconds=2701.4s  interval=100ms
+  silhouette-best K = 2
+    K        inertia  silhouette  top T (s)   migrations   util %
+    2    10514008.99      0.5963       5.10    3,651,565   182.9%  ← best
+    3     5152788.99      0.5537      20.30    2,252,876   158.8%
+    4     3069481.36      0.5479      49.90    1,325,942   130.1%
+    5     2030787.27      0.5449      83.60      874,931   109.6%
+    6     1437139.27      0.5364     125.90      585,472    92.6%
+    7     1069049.88      0.5352     184.20      379,911    77.0%
+    8      816310.46      0.5427     234.70      280,817    67.7%
+    9      653554.31      0.5448     310.90      194,694    57.7%
+   10      522636.13      0.5566     350.40      165,383    53.7%
+
+Wrote dirty_stability_kelbow.png to /home/hsshim/projects/ltram-policy-bench/results/runs/2026-05-08/redis_xlong_zipf
+/home/hsshim/projects/ltram-policy-bench/workloads/monitoring/_phase_data.py:346: FutureWarning: Downcasting object dtype arrays on .fillna, .ffill, .bfill is deprecated and will change in a future version. Call result.infer_objects(copy=False) instead. To opt-in to the future behavior, set `pd.set_option('future.no_silent_downcasting', True)`
+  merged["writable"]    = merged["writable"].fillna(True)  # load-only pages: assume writable
+
+redis (2026-05-08/redis_xlong_zipf) — endurance decomposition
+  total_sweeps=24461  total_seconds=2701.4s
+
+     T (s)    final %    inter %  1-time writes        recur/y   5y endur %  10y endur %
+       1.0       2.8%      97.2%        142,172 58,753,645,644   4482.5870%   8965.1344%
+       5.0       3.7%      96.3%        135,247 43,215,719,563   3297.1267%   6594.2245%
+      10.0       4.3%      95.7%        127,996 35,015,046,620   2671.4595%   5342.8955%
+      30.0       5.9%      94.1%        109,059 22,087,746,750   1685.1761%   3370.3375%
+      60.0       7.9%      92.1%         91,093 14,152,435,832   1079.7542%   2159.4993%
+     120.0      11.7%      88.3%         70,848  7,049,263,874    537.8208%   1075.6369%
+     300.0      24.6%      75.4%         49,124  1,931,535,062    147.3660%    294.7304%
+
+Wrote dirty_stability_endurance_split.png to /home/hsshim/projects/ltram-policy-bench/results/runs/2026-05-08/redis_xlong_zipf
+[downsample] 145127 pages × 24461 sweeps → 1595 × 1529  (p_stride=91, t_stride=16)
+Wrote dirty_timeline_full.png, dirty_timeline_sorted_full.png, and dirty_timeline_active_full.png (142,242/145,127 active pages, 98.0%) to /home/hsshim/projects/ltram-policy-bench/results/runs/2026-05-08/redis_xlong_zipf
+  pages quiet for ≥50% of run: 30645
+redis (2026-05-08/redis_xlong_zipf) — LtRAM utilization simulation
+  total_sweeps=24461  total_seconds=2701.4s  n_pages=145127
+  T = 0s (instant):  peak 221.4% capacity  |  mean 216.4%  |  final 220.8%
+  T = 5.1s  (K=2 cluster top-boundary):  peak 221.3% capacity  |  mean 202.0%  |  final 205.8%
+  T = 20.3s  (K=3 cluster top-boundary):  peak 221.3% capacity  |  mean 175.4%  |  final 178.2%
+  T = 48.0s  (K=4 cluster top-boundary):  peak 221.3% capacity  |  mean 145.4%  |  final 148.3%
+
+Wrote dirty_ltram_utilization.png to /home/hsshim/projects/ltram-policy-bench/results/runs/2026-05-08/redis_xlong_zipf
+/home/hsshim/projects/ltram-policy-bench/workloads/monitoring/_phase_data.py:346: FutureWarning: Downcasting object dtype arrays on .fillna, .ffill, .bfill is deprecated and will change in a future version. Call result.infer_objects(copy=False) instead. To opt-in to the future behavior, set `pd.set_option('future.no_silent_downcasting', True)`
+  merged["writable"]    = merged["writable"].fillna(True)  # load-only pages: assume writable
+
+redis (2026-05-08/redis_xlong_zipf) — phase comparison
+  load: 1319.3s   run: 1382.1s
+
+     T (s)     load 5y%      run 5y%     full 5y%    load %pages     run %pages
+       1.0      0.0395%   4482.5474%   4482.5870%         97.6%         97.9%
+       5.0      0.0287%   3262.4912%   3262.5198%         92.2%         92.8%
+      10.0      0.0236%   2689.2010%   2689.2246%         87.2%         88.2%
+      30.0      0.0148%   1685.1613%   1685.1761%         73.4%         74.6%
+      60.0      0.0090%   1077.1635%   1077.1725%         60.9%         61.9%
+     120.0      0.0046%    535.8146%    535.8192%         46.8%         47.7%
+     300.0      0.0016%    150.0140%    150.0156%         31.2%         32.6%
+
+Wrote dirty_stability_phase_compare.png to /home/hsshim/projects/ltram-policy-bench/results/runs/2026-05-08/redis_xlong_zipf
+/home/hsshim/projects/ltram-policy-bench/workloads/monitoring/_phase_data.py:346: FutureWarning: Downcasting object dtype arrays on .fillna, .ffill, .bfill is deprecated and will change in a future version. Call result.infer_objects(copy=False) instead. To opt-in to the future behavior, set `pd.set_option('future.no_silent_downcasting', True)`
+  merged["writable"]    = merged["writable"].fillna(True)  # load-only pages: assume writable
+/home/hsshim/projects/ltram-policy-bench/workloads/monitoring/dirty_phase_categories_plot.py:123: UserWarning: Setting the 'color' property will override the edgecolor or facecolor properties.
+  patches.append(mpatches.Patch(color=color, edgecolor="black", label=label))
+/home/hsshim/projects/ltram-policy-bench/workloads/monitoring/dirty_phase_categories_plot.py:121: UserWarning: Setting the 'color' property will override the edgecolor or facecolor properties.
+  patches.append(mpatches.Patch(color="white", edgecolor="white", label=label))
+redis (2026-05-08/redis_xlong_zipf) — page categorization (load+run aware)
+  total: 145,127 pages (567 MB)
+  C1 static-RO:                      1,734  (  1.2%)
+  C2 never-touched:                  1,151  (  0.8%)
+  C3 init-once (load only):         27,758  ( 19.1%)
+  C4 recurring (run events):       114,484  ( 78.9%)
+  stays-RO (C1+C2+C3):              30,643  ( 21.1%)
+Wrote dirty_phase_categories_full.png to /home/hsshim/projects/ltram-policy-bench/results/runs/2026-05-08/redis_xlong_zipf
+[zipf] xlong_zipf done at Fri May  8 03:02:50 PM PDT 2026
+[zipf] starting xxlong_zipf at Fri May  8 03:02:50 PM PDT 2026
+Run name: 2026-05-08/redis_xxlong_zipf
+Run dir : /home/hsshim/projects/ltram-policy-bench/results/runs/2026-05-08/redis_xxlong_zipf
+c[?7l[2J[0mSeaBIOS (version 1.15.0-1)
+
+
+iPXE (https://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+BFF8B100+BFECB100 CA00[05;76HPress Ctrl-B to configure iPXE (PCI 00:03.0)...                                                                               
+
+
+Booting from ROM...
+c[?7l[2J
+
+
+
+
+
+
+
+[    0.000000] Linux version 7.0.0-rc6+ (hsshim@sing) (gcc (Ubuntu 11.4.0-1ubuntu1~22.04.3) 11.4.0, GNU ld (GNU Binutils for Ubuntu) 2.38) #1 SMP PREEMPT_DYNAMIC Tue May  5 00:06:30 PDT 2026
+[    0.000000] Command line: root=/dev/vda rw console=ttyS0 nokaslr numa=on ltram_workload=redis interactive=0 ltram_run=2026-05-08/redis_xxlong_zipf ltram_hist=1 ltram_redis_spec=workloadxxlong_zipf.spec ltram_matmul_iters= ltram_gapbs_graph=20 ltram_gapbs_trials= ltram_gapbs_iters= ltram_gapbs_load_secs=
+[    0.000000] KERNEL supported cpus:
+[    0.000000]   Intel GenuineIntel
+[    0.000000]   AMD AuthenticAMD
+[    0.000000]   Hygon HygonGenuine
+[    0.000000]   Centaur CentaurHauls
+[    0.000000]   zhaoxin   Shanghai  
+[    0.000000] BIOS-provided physical RAM map:
+[    0.000000] BIOS-e820: [mem 0x0000000000000000-0x000000000009fbff]  System RAM
+[    0.000000] BIOS-e820: [mem 0x000000000009fc00-0x000000000009ffff]  device reserved
+[    0.000000] BIOS-e820: [gap 0x00000000000a0000-0x00000000000effff]
+[    0.000000] BIOS-e820: [mem 0x00000000000f0000-0x00000000000fffff]  device reserved
+[    0.000000] BIOS-e820: [mem 0x0000000000100000-0x00000000bffdcfff]  System RAM
+[    0.000000] BIOS-e820: [mem 0x00000000bffdd000-0x00000000bfffffff]  device reserved
+[    0.000000] BIOS-e820: [gap 0x00000000c0000000-0x00000000feffbfff]
+[    0.000000] BIOS-e820: [mem 0x00000000feffc000-0x00000000feffffff]  device reserved
+[    0.000000] BIOS-e820: [gap 0x00000000ff000000-0x00000000fffbffff]
+[    0.000000] BIOS-e820: [mem 0x00000000fffc0000-0x00000000ffffffff]  device reserved
+[    0.000000] BIOS-e820: [mem 0x0000000100000000-0x000000023fffffff]  System RAM
+[    0.000000] NX (Execute Disable) protection: active
+[    0.000000] APIC: Static calls initialized
+[    0.000000] SMBIOS 2.8 present.
+[    0.000000] DMI: QEMU Standard PC (i440FX + PIIX, 1996), BIOS 1.15.0-1 04/01/2014
+[    0.000000] DMI: Memory slots populated: 1/1
+[    0.000000] Hypervisor detected: KVM
+[    0.000000] last_pfn = 0xbffdd max_arch_pfn = 0x400000000
+[    0.000000] kvm-clock: Using msrs 4b564d01 and 4b564d00
+[    0.000002] kvm-clock: using sched offset of 112415073737 cycles
+[    0.000011] clocksource: kvm-clock: mask: 0xffffffffffffffff max_cycles: 0x1cd42e4dffb, max_idle_ns: 881590591483 ns
+[    0.000029] tsc: Detected 1799.991 MHz processor
+[    0.002072] last_pfn = 0x240000 max_arch_pfn = 0x400000000
+[    0.002142] MTRR map: 4 entries (3 fixed + 1 variable; max 19), built from 8 variable MTRRs
+[    0.002149] x86/PAT: Configuration [0-7]: WB  WC  UC- UC  WB  WP  UC- WT  
+[    0.002239] last_pfn = 0xbffdd max_arch_pfn = 0x400000000
+[    0.021692] found SMP MP-table at [mem 0x000f5b80-0x000f5b8f]
+[    0.021768] Using GB pages for direct mapping
+[    0.022993] ACPI: Early table checksum verification disabled
+[    0.023033] ACPI: RSDP 0x00000000000F59A0 000014 (v00 BOCHS )
+[    0.023049] ACPI: RSDT 0x00000000BFFE1B90 00003C (v01 BOCHS  BXPC     00000001 BXPC 00000001)
+[    0.023079] ACPI: FACP 0x00000000BFFE18EC 000074 (v01 BOCHS  BXPC     00000001 BXPC 00000001)
+[    0.023101] ACPI: DSDT 0x00000000BFFE0040 0018AC (v01 BOCHS  BXPC     00000001 BXPC 00000001)
+[    0.023110] ACPI: FACS 0x00000000BFFE0000 000040
+[    0.023118] ACPI: APIC 0x00000000BFFE1960 000090 (v01 BOCHS  BXPC     00000001 BXPC 00000001)
+[    0.023127] ACPI: HPET 0x00000000BFFE19F0 000038 (v01 BOCHS  BXPC     00000001 BXPC 00000001)
+[    0.023135] ACPI: SRAT 0x00000000BFFE1A28 000110 (v01 BOCHS  BXPC     00000001 BXPC 00000001)
+[    0.023143] ACPI: SLIT 0x00000000BFFE1B38 000030 (v01 BOCHS  BXPC     00000001 BXPC 00000001)
+[    0.023151] ACPI: WAET 0x00000000BFFE1B68 000028 (v01 BOCHS  BXPC     00000001 BXPC 00000001)
+[    0.023156] ACPI: Reserving FACP table memory at [mem 0xbffe18ec-0xbffe195f]
+[    0.023159] ACPI: Reserving DSDT table memory at [mem 0xbffe0040-0xbffe18eb]
+[    0.023161] ACPI: Reserving FACS table memory at [mem 0xbffe0000-0xbffe003f]
+[    0.023162] ACPI: Reserving APIC table memory at [mem 0xbffe1960-0xbffe19ef]
+[    0.023164] ACPI: Reserving HPET table memory at [mem 0xbffe19f0-0xbffe1a27]
+[    0.023165] ACPI: Reserving SRAT table memory at [mem 0xbffe1a28-0xbffe1b37]
+[    0.023166] ACPI: Reserving SLIT table memory at [mem 0xbffe1b38-0xbffe1b67]
+[    0.023168] ACPI: Reserving WAET table memory at [mem 0xbffe1b68-0xbffe1b8f]
+[    0.054886] ACPI: SRAT: Node 0 PXM 0 [mem 0x00000000-0x0009ffff]
+[    0.054893] ACPI: SRAT: Node 0 PXM 0 [mem 0x00100000-0xbfffffff]
+[    0.054896] ACPI: SRAT: Node 0 PXM 0 [mem 0x100000000-0x22fffffff]
+[    0.054898] ACPI: SRAT: Node 1 PXM 1 [mem 0x230000000-0x23fffffff]
+[    0.054917] NUMA: Node 0 [mem 0x00001000-0x0009ffff] + [mem 0x00100000-0xbfffffff] -> [mem 0x00001000-0xbfffffff]
+[    0.054922] NUMA: Node 0 [mem 0x00001000-0xbfffffff] + [mem 0x100000000-0x22fffffff] -> [mem 0x00001000-0x22fffffff]
+[    0.054948] NODE_DATA(0) allocated [mem 0x22ffd5c40-0x22fffffff]
+[    0.055690] NODE_DATA(1) allocated [mem 0x23ffd2c40-0x23fffcfff]
+[    1.171064] ACPI: PM-Timer IO Port: 0x608
+[    1.171114] ACPI: LAPIC_NMI (acpi_id[0xff] dfl dfl lint[0x1])
+[    1.171232] IOAPIC[0]: apic_id 0, version 17, address 0xfec00000, GSI 0-23
+[    1.171242] ACPI: INT_SRC_OVR (bus 0 bus_irq 0 global_irq 2 dfl dfl)
+[    1.171245] ACPI: INT_SRC_OVR (bus 0 bus_irq 5 global_irq 5 high level)
+[    1.171248] ACPI: INT_SRC_OVR (bus 0 bus_irq 9 global_irq 9 high level)
+[    1.171258] ACPI: INT_SRC_OVR (bus 0 bus_irq 10 global_irq 10 high level)
+[    1.171260] ACPI: INT_SRC_OVR (bus 0 bus_irq 11 global_irq 11 high level)
+[    1.171272] ACPI: Using ACPI (MADT) for SMP configuration information
+[    1.171275] ACPI: HPET id: 0x8086a201 base: 0xfed00000
+[    1.171293] TSC deadline timer available
+[    1.171298] CPU topo: Max. logical packages:   1
+[    1.171301] CPU topo: Max. logical nodes:      1
+[    1.171302] CPU topo: Num. nodes per package:  1
+[    1.171306] CPU topo: Max. logical dies:       1
+[    1.171308] CPU topo: Max. dies per package:   1
+[    1.171315] CPU topo: Max. threads per core:   1
+[    1.171317] CPU topo: Num. cores per package:     4
+[    1.171318] CPU topo: Num. threads per package:   4
+[    1.171319] CPU topo: Allowing 4 present CPUs plus 0 hotplug CPUs
+[    1.171361] kvm-guest: APIC: eoi() replaced with kvm_guest_apic_eoi_write()
+[    1.171394] kvm-guest: KVM setup pv remote TLB flush
+[    1.171401] kvm-guest: setup PV sched yield
+[    1.171424] PM: hibernation: Registered nosave memory: [mem 0x00000000-0x00000fff]
+[    1.171428] PM: hibernation: Registered nosave memory: [mem 0x0009f000-0x000fffff]
+[    1.171431] PM: hibernation: Registered nosave memory: [mem 0xbffdd000-0xffffffff]
+[    1.171434] [gap 0xc0000000-0xfeffbfff] available for PCI devices
+[    1.171437] Booting paravirtualized kernel on KVM
+[    1.171445] clocksource: refined-jiffies: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 7645519600211568 ns
+[    1.229587] Zone ranges:
+[    1.229594]   DMA      [mem 0x0000000000001000-0x0000000000ffffff]
+[    1.229599]   DMA32    [mem 0x0000000001000000-0x00000000ffffffff]
+[    1.229602]   Normal   [mem 0x0000000100000000-0x000000023fffffff]
+[    1.229605]   Device   empty
+[    1.229607] Movable zone start for each node
+[    1.229612] Early memory node ranges
+[    1.229612]   node   0: [mem 0x0000000000001000-0x000000000009efff]
+[    1.229615]   node   0: [mem 0x0000000000100000-0x00000000bffdcfff]
+[    1.229618]   node   0: [mem 0x0000000100000000-0x000000022fffffff]
+[    1.229621]   node   1: [mem 0x0000000230000000-0x000000023fffffff]
+[    1.229623] Initmem setup node 0 [mem 0x0000000000001000-0x000000022fffffff]
+[    1.229642] Initmem setup node 1 [mem 0x0000000230000000-0x000000023fffffff]
+[    1.229653] On node 0, zone DMA: 1 pages in unavailable ranges
+[    1.229702] On node 0, zone DMA: 97 pages in unavailable ranges
+[    1.251193] On node 0, zone Normal: 35 pages in unavailable ranges
+[    1.251967] setup_percpu: NR_CPUS:8192 nr_cpumask_bits:4 nr_cpu_ids:4 nr_node_ids:2
+[    1.253047] percpu: Embedded 63 pages/cpu s221184 r8192 d28672 u524288
+[    1.253146] kvm-guest: PV spinlocks enabled
+[    1.253156] PV qspinlock hash table entries: 256 (order: 0, 4096 bytes, linear)
+[    1.253163] Kernel command line: root=/dev/vda rw console=ttyS0 nokaslr numa=on ltram_workload=redis interactive=0 ltram_run=2026-05-08/redis_xxlong_zipf ltram_hist=1 ltram_redis_spec=workloadxxlong_zipf.spec ltram_matmul_iters= ltram_gapbs_graph=20 ltram_gapbs_trials= ltram_gapbs_iters= ltram_gapbs_load_secs=
+[    1.253688] Unknown kernel command line parameters "nokaslr ltram_workload=redis interactive=0 ltram_run=2026-05-08/redis_xxlong_zipf ltram_hist=1 ltram_redis_spec=workloadxxlong_zipf.spec ltram_matmul_iters= ltram_gapbs_graph=20 ltram_gapbs_trials= ltram_gapbs_iters= ltram_gapbs_load_secs=", will be passed to user space.
+[    1.253732] random: crng init done
+[    1.253734] printk: log buffer data + meta data: 262144 + 1114112 = 1376256 bytes
+[    1.253975] software IO TLB: area num 4.
+[    1.294348] Fallback order for Node 0: 0 1 
+[    1.294359] Fallback order for Node 1: 1 0 
+[    1.294370] Built 2 zonelists, mobility grouping on.  Total pages: 2097019
+[    1.294374] Policy zone: Normal
+[    1.294378] mem auto-init: stack:off, heap alloc:on, heap free:off
+[    1.330732] SLUB: HWalign=64, Order=0-3, MinObjects=0, CPUs=4, Nodes=2
+[    1.330800] Kernel/User page tables isolation: enabled
+[    1.355276] ftrace: allocating 56390 entries in 222 pages
+[    1.355285] ftrace: allocated 222 pages with 6 groups
+[    1.356496] Dynamic Preempt: lazy
+[    1.357331] rcu: Preemptible hierarchical RCU implementation.
+[    1.357333] rcu: 	RCU restricting CPUs from NR_CPUS=8192 to nr_cpu_ids=4.
+[    1.357337] 	Trampoline variant of Tasks RCU enabled.
+[    1.357338] 	Rude variant of Tasks RCU enabled.
+[    1.357339] 	Tracing variant of Tasks RCU enabled.
+[    1.357341] rcu: RCU calculated value of scheduler-enlistment delay is 25 jiffies.
+[    1.357342] rcu: Adjusting geometry for rcu_fanout_leaf=16, nr_cpu_ids=4
+[    1.357366] RCU Tasks: Setting shift to 2 and lim to 1 rcu_task_cb_adjust=1 rcu_task_cpu_ids=4.
+[    1.357370] RCU Tasks Rude: Setting shift to 2 and lim to 1 rcu_task_cb_adjust=1 rcu_task_cpu_ids=4.
+[    1.366033] NR_IRQS: 524544, nr_irqs: 456, preallocated irqs: 16
+[    1.366374] rcu: srcu_init: Setting srcu_struct sizes based on contention.
+[   15.400841] Console: colour VGA+ 80x25
+[   15.467193] printk: legacy console [ttyS0] enabled
+[  145.758231] mempolicy: Enabling automatic NUMA balancing. Configure with numa_balancing= or the kernel.numa_balancing sysctl
+[  146.162339] ACPI: Core revision 20251212
+[  147.222301] clocksource: hpet: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 19112604467 ns
+[  148.950375] APIC: Switch to symmetric I/O mode setup
+[  149.746978] x2apic enabled
+[  150.165985] APIC: Switched APIC routing to: physical x2apic
+[  151.025443] kvm-guest: APIC: send_IPI_mask() replaced with kvm_send_ipi_mask()
+[  152.026846] kvm-guest: APIC: send_IPI_mask_allbutself() replaced with kvm_send_ipi_mask_allbutself()
+[  153.482364] kvm-guest: setup PV IPIs
+[  154.092923] ..TIMER: vector=0x30 apic1=0 pin1=2 apic2=-1 pin2=-1
+[  155.418396] clocksource: tsc-early: mask: 0xffffffffffffffff max_cycles: 0x19f2211c0f7, max_idle_ns: 440795242338 ns
+[  157.718338] Calibrating delay loop (skipped) preset value.. 3599.98 BogoMIPS (lpj=7199964)
+[  157.726585] x86/cpu: User Mode Instruction Prevention (UMIP) activated
+[  157.734511] Last level iTLB entries: 4KB 0, 2MB 0, 4MB 0
+[  157.742339] Last level dTLB entries: 4KB 0, 2MB 0, 4MB 0, 1GB 0
+[  157.750362] mitigations: Enabled attack vectors: user_kernel, user_user, guest_host, guest_guest, SMT mitigations: auto
+[  157.754368] Speculative Store Bypass: Mitigation: Speculative Store Bypass disabled via prctl
+[  157.758347] Spectre V2 : Mitigation: Retpolines
+[  157.762340] ITS: Mitigation: Aligned branch/return thunks
+[  157.766341] MDS: Mitigation: Clear CPU buffers
+[  157.770342] Spectre V1 : Mitigation: usercopy/swapgs barriers and __user pointer sanitization
+[  157.774345] Spectre V2 : Spectre v2 / SpectreRSB: Filling RSB on context switch and VMEXIT
+[  157.778345] Spectre V2 : Enabling Restricted Speculation for firmware calls
+[  157.786345] Spectre V2 : mitigation: Enabling conditional Indirect Branch Prediction Barrier
+[  157.790348] active return thunk: its_return_thunk
+[  157.798368] x86/fpu: Supporting XSAVE feature 0x001: 'x87 floating point registers'
+[  157.802345] x86/fpu: Supporting XSAVE feature 0x002: 'SSE registers'
+[  157.806345] x86/fpu: Supporting XSAVE feature 0x004: 'AVX registers'
+[  157.810347] x86/fpu: xstate_offset[2]:  576, xstate_sizes[2]:  256
+[  157.818340] x86/fpu: Enabled xstate features 0x7, context size is 832 bytes, using 'standard' format.
+[  157.871829] Freeing SMP alternatives memory: 52K
+[  157.874351] pid_max: default: 32768 minimum: 301
+[  157.878588] landlock: Up and running.
+[  157.886337] Yama: becoming mindful.
+[  157.890550] AppArmor: AppArmor initialized
+[  157.898522] Dentry cache hash table entries: 1048576 (order: 11, 8388608 bytes, vmalloc hugepage)
+[  157.904216] Inode-cache hash table entries: 524288 (order: 10, 4194304 bytes, vmalloc hugepage)
+[  157.906460] Mount-cache hash table entries: 16384 (order: 5, 131072 bytes, vmalloc)
+[  157.910398] Mountpoint-cache hash table entries: 16384 (order: 5, 131072 bytes, vmalloc)
+[  157.914328] VFS: Finished mounting rootfs on nullfs
+[  157.914328] smpboot: CPU0: Intel(R) Xeon(R) CPU E5-2403 v2 @ 1.80GHz (family: 0x6, model: 0x3e, stepping: 0x4)
+[  157.914902] Performance Events: IvyBridge events, full-width counters, Intel PMU driver.
+[  157.918360] ... version:                   2
+[  157.922377] ... bit width:                 48
+[  157.926352] ... generic counters:          8
+[  157.930350] ... generic bitmap:            00000000000000ff
+[  157.934351] ... fixed-purpose counters:    3
+[  157.938352] ... fixed-purpose bitmap:      0000000000000007
+[  157.942352] ... value mask:                0000ffffffffffff
+[  157.946351] ... max period:                00007fffffffffff
+[  157.950353] ... global_ctrl mask:          00000007000000ff
+[  157.954940] signal: max sigframe size: 1776
+[  157.958509] rcu: Hierarchical SRCU implementation.
+[  157.962373] rcu: 	Max phase no-delay instances is 1000.
+[  157.966575] Timer migration: 2 hierarchy levels; 8 children per group; 1 crossnode level
+[  157.980668] smp: Bringing up secondary CPUs ...
+[  157.982840] smpboot: x86: Booting SMP configuration:
+[  157.986394] .... node  #0, CPUs:      #1 #2 #3
+[  157.987505] smp: Brought up 2 nodes, 4 CPUs
+[  157.994359] smpboot: Total of 4 processors activated (14399.92 BogoMIPS)
+[  157.998911] Memory: 8113520K/8388076K available (20861K kernel code, 4686K rwdata, 14632K rodata, 5240K init, 6172K bss, 254732K reserved, 0K cma-reserved)
+[  158.003298] devtmpfs: initialized
+[  158.006499] x86/mm: Memory block size: 128MB
+[  158.014342] clocksource: jiffies: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 7645041785100000 ns
+[  158.018394] posixtimers hash table entries: 2048 (order: 3, 32768 bytes, vmalloc)
+[  158.022389] futex hash table entries: 512 (32768 bytes on 2 NUMA nodes, total 64 KiB, linear).
+[  158.030338] PM: RTC time: 22:08:18, date: 2026-05-08
+[  158.037590] NET: Registered PF_NETLINK/PF_ROUTE protocol family
+[  158.039169] DMA: preallocated 1024 KiB GFP_KERNEL pool for atomic allocations
+[  158.043627] DMA: preallocated 1024 KiB GFP_KERNEL|GFP_DMA pool for atomic allocations
+[  158.046680] DMA: preallocated 1024 KiB GFP_KERNEL|GFP_DMA32 pool for atomic allocations
+[  158.050399] audit: initializing netlink subsys (disabled)
+[  158.055147] audit: type=2000 audit(1778277885.237:1): state=initialized audit_enabled=0 res=1
+[  158.063842] thermal_sys: Registered thermal governor 'fair_share'
+[  158.066347] thermal_sys: Registered thermal governor 'bang_bang'
+[  158.070349] thermal_sys: Registered thermal governor 'step_wise'
+[  158.074348] thermal_sys: Registered thermal governor 'user_space'
+[  158.078347] thermal_sys: Registered thermal governor 'power_allocator'
+[  158.082411] cpuidle: using governor ladder
+[  158.090379] cpuidle: using governor menu
+[  158.094916] acpiphp: ACPI Hot Plug PCI Controller Driver version: 0.5
+[  158.118341] PCI: Using configuration type 1 for base access
+[  158.122596] core: PMU erratum BJ122, BV98, HSD29 workaround disabled, HT off
+[  158.126462] kprobes: kprobe jump-optimization is enabled. All kprobes are optimized if possible.
+[  158.159704] HugeTLB: registered 1.00 GiB page size, pre-allocated 0 pages
+[  158.162368] HugeTLB: 16380 KiB vmemmap can be freed for a 1.00 GiB page
+[  158.166356] HugeTLB: registered 2.00 MiB page size, pre-allocated 0 pages
+[  158.170352] HugeTLB: 28 KiB vmemmap can be freed for a 2.00 MiB page
+[  158.183916] ACPI: Added _OSI(Module Device)
+[  158.186349] ACPI: Added _OSI(Processor Device)
+[  158.190343] ACPI: Added _OSI(Processor Aggregator Device)
+[  158.195898] ACPI: 1 ACPI AML tables successfully acquired and loaded
+[  158.238439] ACPI: \_SB_: platform _OSC: OS support mask [002e7eff]
+[  158.242689] ACPI: Interpreter enabled
+[  158.246402] ACPI: PM: (supports S0 S3 S4 S5)
+[  158.250355] ACPI: Using IOAPIC for interrupt routing
+[  158.254420] PCI: Using host bridge windows from ACPI; if necessary, use "pci=nocrs" and report a bug
+[  158.258349] PCI: Using E820 reservations for host bridge windows
+[  158.274365] ACPI: Enabled 2 GPEs in block 00 to 0F
+[  158.374537] ACPI: PCI Root Bridge [PCI0] (domain 0000 [bus 00-ff])
+[  158.378375] acpi PNP0A03:00: _OSC: OS supports [ASPM ClockPM Segments MSI EDR HPX-Type3]
+[  158.382351] acpi PNP0A03:00: _OSC: not requesting OS control; OS requires [ExtendedConfig ASPM ClockPM MSI]
+[  158.386383] acpi PNP0A03:00: _OSC: platform retains control of PCIe features (AE_ERROR)
+[  158.390383] acpi PNP0A03:00: fail to add MMCONFIG information, can't access extended configuration space under this bridge
+[  158.402369] acpiphp: Slot [3] registered
+[  158.410395] acpiphp: Slot [4] registered
+[  158.414743] acpiphp: Slot [5] registered
+[  158.419546] acpiphp: Slot [6] registered
+[  158.423006] acpiphp: Slot [7] registered
+[  158.430401] acpiphp: Slot [8] registered
+[  158.438388] acpiphp: Slot [9] registered
+[  158.446389] acpiphp: Slot [10] registered
+[  158.454406] acpiphp: Slot [11] registered
+[  158.458467] acpiphp: Slot [12] registered
+[  158.462453] acpiphp: Slot [13] registered
+[  158.466418] acpiphp: Slot [14] registered
+[  158.468579] acpiphp: Slot [15] registered
+[  158.474395] acpiphp: Slot [16] registered
+[  158.482399] acpiphp: Slot [17] registered
+[  158.488209] acpiphp: Slot [18] registered
+[  158.494399] acpiphp: Slot [19] registered
+[  158.502400] acpiphp: Slot [20] registered
+[  158.510398] acpiphp: Slot [21] registered
+[  158.518399] acpiphp: Slot [22] registered
+[  158.526399] acpiphp: Slot [23] registered
+[  158.534402] acpiphp: Slot [24] registered
+[  158.542398] acpiphp: Slot [25] registered
+[  158.546462] acpiphp: Slot [26] registered
+[  158.554410] acpiphp: Slot [27] registered
+[  158.562414] acpiphp: Slot [28] registered
+[  158.570396] acpiphp: Slot [29] registered
+[  158.574958] acpiphp: Slot [30] registered
+[  158.582399] acpiphp: Slot [31] registered
+[  158.590358] PCI host bridge to bus 0000:00
+[  158.594349] pci_bus 0000:00: Unknown NUMA node; performance will be reduced
+[  158.598377] pci_bus 0000:00: root bus resource [io  0x0000-0x0cf7 window]
+[  158.602353] pci_bus 0000:00: root bus resource [io  0x0d00-0xffff window]
+[  158.606353] pci_bus 0000:00: root bus resource [mem 0x000a0000-0x000bffff window]
+[  158.610356] pci_bus 0000:00: root bus resource [mem 0xc0000000-0xfebfffff window]
+[  158.614356] pci_bus 0000:00: root bus resource [mem 0x240000000-0x2bfffffff window]
+[  158.618357] pci_bus 0000:00: root bus resource [bus 00-ff]
+[  158.638348] pci 0000:00:00.0: [8086:1237] type 00 class 0x060000 conventional PCI endpoint
+[  158.878344] pci 0000:00:01.0: [8086:7000] type 00 class 0x060100 conventional PCI endpoint
+[  159.090343] pci 0000:00:01.1: [8086:7010] type 00 class 0x010180 conventional PCI endpoint
+[  159.246344] pci 0000:00:01.1: BAR 4 [io  0xc160-0xc16f]
+[  159.258341] pci 0000:00:01.1: BAR 0 [io  0x01f0-0x01f7]: legacy IDE quirk
+[  159.262349] pci 0000:00:01.1: BAR 1 [io  0x03f6]: legacy IDE quirk
+[  159.266356] pci 0000:00:01.1: BAR 2 [io  0x0170-0x0177]: legacy IDE quirk
+[  159.270354] pci 0000:00:01.1: BAR 3 [io  0x0376]: legacy IDE quirk
+[  159.330345] pci 0000:00:01.3: [8086:7113] type 00 class 0x068000 conventional PCI endpoint
+[  159.502417] pci 0000:00:01.3: quirk: [io  0x0600-0x063f] claimed by PIIX4 ACPI
+[  159.510348] pci 0000:00:01.3: quirk: [io  0x0700-0x070f] claimed by PIIX4 SMB
+[  159.534341] pci 0000:00:01.3: quirk_piix4_acpi+0x0/0x180 took 35156 usecs
+[  159.602342] pci 0000:00:02.0: [1234:1111] type 00 class 0x030000 conventional PCI endpoint
+[  159.738352] pci 0000:00:02.0: BAR 0 [mem 0xfd000000-0xfdffffff pref]
+[  159.750343] pci 0000:00:02.0: BAR 2 [mem 0xfebb0000-0xfebb0fff]
+[  159.770347] pci 0000:00:02.0: ROM [mem 0xfeba0000-0xfebaffff pref]
+[  159.794341] pci 0000:00:02.0: Video device with shadowed ROM at [mem 0x000c0000-0x000dffff]
+[  159.798354] pci 0000:00:02.0: pci_fixup_video+0x0/0x120 took 15625 usecs
+[  159.906345] pci 0000:00:03.0: [8086:100e] type 00 class 0x020000 conventional PCI endpoint
+[  160.037004] pci 0000:00:03.0: BAR 0 [mem 0xfeb80000-0xfeb9ffff]
+[  160.042342] pci 0000:00:03.0: BAR 1 [io  0xc080-0xc0bf]
+[  160.062340] pci 0000:00:03.0: ROM [mem 0xfeb00000-0xfeb7ffff pref]
+[  160.162343] pci 0000:00:04.0: [1af4:1009] type 00 class 0x000200 conventional PCI endpoint
+[  160.282344] pci 0000:00:04.0: BAR 0 [io  0xc0c0-0xc0ff]
+[  160.290345] pci 0000:00:04.0: BAR 1 [mem 0xfebb1000-0xfebb1fff]
+[  160.310343] pci 0000:00:04.0: BAR 4 [mem 0xfe000000-0xfe003fff 64bit pref]
+[  160.589041] pci 0000:00:05.0: [1af4:1009] type 00 class 0x000200 conventional PCI endpoint
+[  160.722378] pci 0000:00:05.0: BAR 0 [io  0xc100-0xc13f]
+[  160.730343] pci 0000:00:05.0: BAR 1 [mem 0xfebb2000-0xfebb2fff]
+[  160.743191] pci 0000:00:05.0: BAR 4 [mem 0xfe004000-0xfe007fff 64bit pref]
+[  161.100762] pci 0000:00:06.0: [1af4:1009] type 00 class 0x000200 conventional PCI endpoint
+[  161.222348] pci 0000:00:06.0: BAR 0 [io  0xc140-0xc15f]
+[  161.230349] pci 0000:00:06.0: BAR 1 [mem 0xfebb3000-0xfebb3fff]
+[  161.246345] pci 0000:00:06.0: BAR 4 [mem 0xfe008000-0xfe00bfff 64bit pref]
+[  161.490346] pci 0000:00:07.0: [1af4:1001] type 00 class 0x010000 conventional PCI endpoint
+[  161.592773] pci 0000:00:07.0: BAR 0 [io  0xc000-0xc07f]
+[  161.598343] pci 0000:00:07.0: BAR 1 [mem 0xfebb4000-0xfebb4fff]
+[  161.614346] pci 0000:00:07.0: BAR 4 [mem 0xfe00c000-0xfe00ffff 64bit pref]
+[  162.455760] ACPI: PCI: Interrupt link LNKA configured for IRQ 10
+[  162.461874] ACPI: PCI: Interrupt link LNKB configured for IRQ 10
+[  162.474407] ACPI: PCI: Interrupt link LNKC configured for IRQ 11
+[  162.490399] ACPI: PCI: Interrupt link LNKD configured for IRQ 11
+[  162.502444] ACPI: PCI: Interrupt link LNKS configured for IRQ 9
+[  162.519166] iommu: Default domain type: Translated
+[  162.522356] iommu: DMA domain TLB invalidation policy: lazy mode
+[  162.526928] SCSI subsystem initialized
+[  162.531317] ACPI: bus type USB registered
+[  162.534457] usbcore: registered new interface driver usbfs
+[  162.538428] usbcore: registered new interface driver hub
+[  162.542435] usbcore: registered new device driver usb
+[  162.546465] pps_core: LinuxPPS API ver. 1 registered
+[  162.550362] pps_core: Software ver. 5.3.6 - Copyright 2005-2007 Rodolfo Giometti <giometti@linux.it>
+[  162.554376] PTP clock support registered
+[  162.559187] EDAC MC: Ver: 3.0.0
+[  162.627107] NetLabel: Initializing
+[  162.630355] NetLabel:  domain hash size = 128
+[  162.634348] NetLabel:  protocols = UNLABELED CIPSOv4 CALIPSO
+[  162.638443] NetLabel:  unlabeled traffic allowed by default
+[  162.642766] PCI: Using ACPI for IRQ routing
+[  162.718366] e820: register RAM buffer resource [mem 0x0009fc00-0x0009ffff]
+[  162.722377] e820: register RAM buffer resource [mem 0xbffdd000-0xbfffffff]
+[  162.727789] pci 0000:00:02.0: vgaarb: setting as boot VGA device
+[  162.730328] pci 0000:00:02.0: vgaarb: bridge control possible
+[  162.730328] pci 0000:00:02.0: vgaarb: VGA device added: decodes=io+mem,owns=io+mem,locks=none
+[  162.730350] vgaarb: loaded
+[  162.738341] hpet0: at MMIO 0xfed00000, IRQs 2, 8, 0
+[  162.742348] hpet0: 3 comparators, 64-bit 100.000000 MHz counter
+[  162.770585] clocksource: Switched to clocksource kvm-clock
+[  163.121515] VFS: Disk quotas dquot_6.6.0
+[  163.523111] VFS: Dquot-cache hash table entries: 512 (order 0, 4096 bytes)
+[  164.317860] netfs: FS-Cache loaded
+[  164.749844] AppArmor: AppArmor Filesystem Enabled
+[  165.287051] pnp: PnP ACPI init
+[  165.728688] pnp: PnP ACPI: found 6 devices
+[  166.376663] clocksource: acpi_pm: mask: 0xffffff max_cycles: 0xffffff, max_idle_ns: 2085701024 ns
+[  168.116916] NET: Registered PF_INET protocol family
+[  169.201711] IP idents hash table entries: 131072 (order: 8, 1048576 bytes, vmalloc)
+[  170.611413] tcp_listen_portaddr_hash hash table entries: 4096 (order: 4, 65536 bytes, vmalloc)
+[  172.156966] Table-perturb hash table entries: 65536 (order: 6, 262144 bytes, vmalloc)
+[  173.652887] TCP established hash table entries: 65536 (order: 7, 524288 bytes, vmalloc)
+[  174.892063] TCP bind hash table entries: 65536 (order: 9, 2097152 bytes, vmalloc hugepage)
+[  176.236780] TCP: Hash tables configured (established 65536 bind 65536)
+[  177.143357] MPTCP token hash table entries: 8192 (order: 6, 196608 bytes, vmalloc)
+[  178.188124] UDP hash table entries: 4096 (order: 6, 262144 bytes, vmalloc)
+[  179.056925] UDP-Lite hash table entries: 4096 (order: 6, 262144 bytes, vmalloc)
+[  180.108904] NET: Registered PF_UNIX/PF_LOCAL protocol family
+[  180.992798] NET: Registered PF_XDP protocol family
+[  181.739013] pci_bus 0000:00: resource 4 [io  0x0000-0x0cf7 window]
+[  182.486631] pci_bus 0000:00: resource 5 [io  0x0d00-0xffff window]
+[  183.291009] pci_bus 0000:00: resource 6 [mem 0x000a0000-0x000bffff window]
+[  184.458943] pci_bus 0000:00: resource 7 [mem 0xc0000000-0xfebfffff window]
+[  185.460719] pci_bus 0000:00: resource 8 [mem 0x240000000-0x2bfffffff window]
+[  186.682092] pci 0000:00:01.0: PIIX3: Enabling Passive Release
+[  187.804654] pci 0000:00:00.0: quirk_passive_release+0x0/0xb0 took 1105119 usecs
+[  189.420900] pci 0000:00:00.0: Limiting direct PCI/PCI transfers
+[  190.373973] pci 0000:00:00.0: quirk_natoma+0x0/0x40 took 930757 usecs
+[  191.896633] PCI: CLS 0 bytes, default 64
+[  192.909130] PCI-DMA: Using software bounce buffering for IO (SWIOTLB)
+[  194.312711] software IO TLB: mapped [mem 0x00000000bbfdd000-0x00000000bffdd000] (64MB)
+[  196.168999] clocksource: tsc: mask: 0xffffffffffffffff max_cycles: 0x19f2211c0f7, max_idle_ns: 440795242338 ns
+[  197.349944] Initialise system trusted keyrings
+[  197.736704] Key type blacklist registered
+[  198.167120] workingset: timestamp_bits=36 max_order=21 bucket_order=0
+[  198.410140] squashfs: version 4.0 (2009/01/31) Phillip Lougher
+[  198.882171] fuse: init (API version 7.45)
+[  199.473028] 9p: Installing v9fs 9p2000 file system support
+[  200.507713] integrity: Platform Keyring initialized
+[  201.387309] Key type asymmetric registered
+[  201.996576] Asymmetric key parser 'x509' registered
+[  202.747032] Block layer SCSI generic (bsg) driver version 0.4 loaded (major 242)
+[  203.879545] io scheduler mq-deadline registered
+[  204.703544] ledtrig-cpu: registered to indicate activity on CPUs
+[  205.652372] input: Power Button as /devices/platform/LNXPWRBN:00/input/input0
+[  206.328530] ACPI: button: Power Button [PWRF]
+[  207.176607] ACPI: \_SB_.LNKD: Enabled at IRQ 11
+[  209.951085] ACPI: \_SB_.LNKA: Enabled at IRQ 10
+[  212.836612] ACPI: \_SB_.LNKB: Enabled at IRQ 10
+[  216.408129] ACPI: \_SB_.LNKC: Enabled at IRQ 11
+[  218.567539] Serial: 8250/16550 driver, 32 ports, IRQ sharing enabled
+[  227.884509] 00:04: ttyS0 at I/O 0x3f8 (irq = 4, base_baud = 115200) is a 16550A
+[  229.377004] Linux agpgart interface v0.103
+[  230.285364] loop: module loaded
+[  231.271692] virtio_blk virtio3: 4/0/0 default/read/poll queues
+[  234.984526] virtio_blk virtio3: [vda] 122880 512-byte logical blocks (62.9 MB/60.0 MiB)
+[  236.681872] scsi host0: ata_piix
+[  237.358359] scsi host1: ata_piix
+[  237.880681] ata1: PATA max MWDMA2 cmd 0x1f0 ctl 0x3f6 bmdma 0xc160 irq 14 lpm-pol 0
+[  239.276542] ata2: PATA max MWDMA2 cmd 0x170 ctl 0x376 bmdma 0xc168 irq 15 lpm-pol 0
+[  240.682594] tun: Universal TUN/TAP device driver, 1.6
+[  240.768151] PPP generic driver version 2.4.2
+[  240.784082] VFIO - User Level meta-driver version: 0.3
+[  240.940875] i8042: PNP: PS/2 Controller [PNP0303:KBD,PNP0f13:MOU] at 0x60,0x64 irq 1,12
+[  241.283018] ata2: found unknown device (class 0)
+[  241.549395] serio: i8042 KBD port at 0x60,0x64 irq 1
+[  241.986191] serio: i8042 AUX port at 0x60,0x64 irq 12
+[  242.069667] ata2.00: ATAPI: QEMU DVD-ROM, 2.5+, max UDMA/100
+[  242.074740] mousedev: PS/2 mouse device common for all mice
+[  242.207794] scsi 1:0:0:0: CD-ROM            QEMU     QEMU DVD-ROM     2.5+ PQ: 0 ANSI: 5
+[  242.240033] rtc_cmos 00:05: RTC can wake from S4
+[  242.400796] input: AT Translated Set 2 keyboard as /devices/platform/i8042/serio0/input/input1
+[  242.408745] rtc_cmos 00:05: registered as rtc0
+[  243.325207] rtc_cmos 00:05: setting system clock to 2026-05-08T22:11:59 UTC (1778278319)
+[  245.121486] rtc_cmos 00:05: alarms up to one day, y3k, 242 bytes nvram, hpet irqs
+[  245.449712] i2c_dev: i2c /dev entries driver
+[  245.842680] device-mapper: core: CONFIG_IMA_DISABLE_HTABLE is disabled. Duplicate IMA measurements will not be recorded in the IMA log.
+[  247.078004] device-mapper: uevent: version 1.0.3
+[  247.248326] device-mapper: ioctl: 4.50.0-ioctl (2025-04-28) initialised: dm-devel@lists.linux.dev
+[  247.907034] intel_pstate: CPU model not supported
+[  247.967033] drop_monitor: Initializing network drop monitor service
+[  248.352418] NET: Registered PF_INET6 protocol family
+[  248.356122] Segment Routing with IPv6
+[  248.966027] In-situ OAM (IOAM) with IPv6
+[  249.058427] NET: Registered PF_PACKET protocol family
+[  249.066306] 9pnet: Installing 9P2000 support
+[  249.257776] sr 1:0:0:0: [sr0] scsi3-mmc drive: 4x/4x cd/rw xa/form2 tray
+[  250.089405] cdrom: Uniform CD-ROM driver Revision: 3.20
+[  250.330566] sr 1:0:0:0: Attached scsi generic sg0 type 5
+[  250.525171] Key type dns_resolver registered
+[  250.537320] IPI shorthand broadcast: enabled
+[  250.638065] sched_clock: Marking stable (94328007147, 156307939155)->(443813207854, -193177261552)
+[  250.689548] registered taskstats version 1
+[  250.737394] Loading compiled-in X.509 certificates
+[  250.794238] Loaded X.509 cert 'Build time autogenerated kernel key: a9be1dadcc1e04141b909bd5be0e806c6017220b'
+[  250.842197] Demotion targets for Node 0: null
+[  251.492520] Demotion targets for Node 1: null
+[  252.136927] Key type .fscrypt registered
+[  252.648515] Key type fscrypt-provisioning registered
+[  252.962540] Key type encrypted registered
+[  253.184151] AppArmor: AppArmor sha256 policy hashing enabled
+[  253.373022] ima: No TPM chip found, activating TPM-bypass!
+[  253.564571] Loading compiled-in module X.509 certificates
+[  253.805201] Loaded X.509 cert 'Build time autogenerated kernel key: a9be1dadcc1e04141b909bd5be0e806c6017220b'
+[  254.236680] ima: Allocated hash algorithm: sha1
+[  254.388321] ima: No architecture policies found
+[  254.620132] evm: Initialising EVM extended attributes:
+[  255.081449] evm: security.selinux
+[  255.098852] evm: security.SMACK64
+[  255.181559] evm: security.SMACK64EXEC
+[  255.380133] evm: security.SMACK64TRANSMUTE
+[  255.560926] evm: security.SMACK64MMAP
+[  255.737170] evm: security.apparmor
+[  255.919274] evm: security.ima
+[  256.112048] evm: security.capability
+[  256.352663] evm: HMAC attrs: 0x1
+[  256.614062] PM:   Magic number: 10:992:147
+[  256.776718] acpi device:18: hash matches
+[  257.217422] RAS: Correctable Errors collector initialized.
+[  257.408582] clk: Disabling unused clocks
+[  257.449457] PM: genpd: Disabling unused power domains
+[  257.877440] md: Waiting for all devices to be available before autodetect
+[  258.075278] md: If you don't use raid, use raid=noautodetect
+[  258.273346] md: Autodetecting RAID arrays.
+[  258.345698] md: autorun ...
+[  258.412096] md: ... autorun DONE.
+[  258.517424] EXT4-fs (vda): mounting ext2 file system using the ext4 subsystem
+[  258.967814] EXT4-fs (vda): warning: mounting unchecked fs, running e2fsck is recommended
+[  259.209282] EXT4-fs (vda): mounted filesystem 006f6336-ba6f-4541-a88f-9c4b17f859c5 r/w without journal. Quota mode: none.
+[  259.417524] VFS: Mounted root (ext2 filesystem) on device 253:0.
+[  259.480984] devtmpfs: mounted
+[  259.533875] VFS: Pivoted into new rootfs
+[  259.566914] Freeing unused decrypted memory: 2036K
+[  259.628128] Freeing unused kernel image (initmem) memory: 5240K
+[  259.777103] Write protecting the kernel read-only data: 38912k
+[  259.880261] Freeing unused kernel image (text/rodata gap) memory: 1664K
+[  259.986435] Freeing unused kernel image (rodata/data gap) memory: 1752K
+[  260.181620] x86/mm: Checked W+X mappings: passed, no W+X pages found.
+[  260.408575] x86/mm: Checking user space page tables
+[  260.542764] x86/mm: Checked W+X mappings: passed, no W+X pages found.
+[  260.622385] Run /sbin/init as init process
+[  260.715052] EXT4-fs (vda): re-mounted 006f6336-ba6f-4541-a88f-9c4b17f859c5.
+Seeding 256 bits and crediting
+Saving 256 bits of creditable seed for next boot
+Starting syslogd: OK
+Starting klogd: OK
+Running sysctl: OK
+Starting loopback...
+Starting crond: OK
+Starting redis: OK
+Histogram mode: dirty_sweep will run alongside the workload.
+Run dir: /mnt/results/runs/2026-05-08/redis_xxlong_zipf
+Kernel boot parameter requested workload: redis
+Starting Redis server on Node 0...
+redis-server pid=144
+Using YCSB workload spec: workloadxxlong_zipf.spec
+[hist] dirty_sweep pid=293, target pid=144, out=dirty_sweep_load.csv
+Phase 1: Loading data into Redis...
+[hist] dirty_sweep stopped
+[hist] dirty_sweep pid=8876, target pid=144, out=dirty_sweep.csv
+Phase 2: Running operations...
+[hist] dirty_sweep stopped
+Workload complete. Powering off...
+[12436.123889] I/O error, dev vda, sector 53392 op 0x1:(WRITE) flags 0x0 phys_seg 111 prio class 2
+[12436.220091] ACPI: PM: Preparing to enter system sleep state S5
+[12437.124864] clocksource: Long readout interval, skipping watchdog check: cs_nsec: 1212864142 wd_nsec: 1212864169
+[12437.125664] EXT4-fs warning (device vda): ext4_end_bio:369: I/O error 10 writing to inode 11525 starting block 26696)
+[12437.658271] reboot: Power down
+[12438.797582] Buffer I/O error on device vda, logical block 26696
+[12440.498741] Buffer I/O error on device vda, logical block 26697
+[12440.498746] Buffer I/O error on device vda, logical block 26698
+[12440.498748] Buffer I/O error on device vda, logical block 26699
+[12440.498749] Buffer I/O error on device vda, logical block 26700
+[12440.498756] Buffer I/O error on device vda, logical block 26701
+[12440.498758] Buffer I/O error on device vda, logical block 26702
+[12440.498759] Buffer I/O error on device vda, logical block 26703
+[12440.498761] Buffer I/O error on device vda, logical block 26704
+[12440.498763] Buffer I/O error on device vda, logical block 26705
+[12440.498882] I/O error, dev vda, sector 35842 op 0x1:(WRITE) flags 0x0 phys_seg 59 prio class 2
+[12446.074185] EXT4-fs warning (device vda): ext4_end_bio:369: I/O error 10 writing to inode 11525 starting block 17921)
+Wrote 6 PNGs into /home/hsshim/projects/ltram-policy-bench/results/runs/2026-05-08/redis_xxlong_zipf:
+  meminfo_plot.png              (sys, linear)
+  meminfo_log.png               (sys, log)
+  meminfo_per_metric_n0.png     (n0,    linear)
+  meminfo_per_metric_n0_log.png (n0,    log)
+  meminfo_per_metric_n0n1.png   (n0+n1, linear)
+  meminfo_per_metric_n0n1_log.png (n0+n1, log)
+Run: 2026-05-08/redis_xxlong_zipf
+  total_sweeps=55128 duration=6034.33s interval=100ms
+  saturation rate: 10.0 writes/sec
+  Class 2 cut:  max_stab ≥ 27564  (50% of run)
+  Class 3/4 cut: max_stab ≥ 2756  (5% of run)
+
+Four-class breakdown (509.0 MB total):
+  Class 1 (static-RO):          1739 pages      6.8 MB  (  1.3%)  — place at fault, no tracking
+  Class 2 (write-once):        22764 pages     88.9 MB  ( 17.5%)  — effectively static-RO after init, easy migrate
+  Class 3 (read-heavy):        76406 pages    298.5 MB  ( 58.6%)  — LRW queue with occasional re-migrate
+  Class 4 (write-heavy):       29387 pages    114.8 MB  ( 22.6%)  — stays on DRAM
+
+  LtRAM-confident (Class 1 + 2):          95.7 MB ( 18.8% of workload)
+  LtRAM-eligible  (Class 1 + 2 + 3):     394.2 MB ( 77.4% of workload)
+  DRAM-required   (Class 4):             114.8 MB ( 22.6% of workload)
+  → with sufficient LtRAM, the LtRAM-eligible fraction could be displaced from DRAM
+
+Class 1 top VMAs:
+     672 pages  /usr/bin/redis-server
+     411 pages  /lib/libc.so.6
+     397 pages  /usr/lib/libstdc++.so.6.0.33
+     168 pages  /lib/libm.so.6
+      55 pages  /lib/ld-linux-x86-64.so.2
+      25 pages  /lib/libgcc_s.so.1
+
+Wrote dirty_hist_run.png, dirty_hist_full.png (if load CSV present), dirty_cdf.png, dirty_tiers.png, dirty_tiers_final.png to /home/hsshim/projects/ltram-policy-bench/results/runs/2026-05-08/redis_xxlong_zipf
+/home/hsshim/projects/ltram-policy-bench/workloads/monitoring/_phase_data.py:346: FutureWarning: Downcasting object dtype arrays on .fillna, .ffill, .bfill is deprecated and will change in a future version. Call result.infer_objects(copy=False) instead. To opt-in to the future behavior, set `pd.set_option('future.no_silent_downcasting', True)`
+  merged["writable"]    = merged["writable"].fillna(True)  # load-only pages: assume writable
+Class 1 (static-RO, !VM_WRITE): 1739 pages (~6.8 MB) — placed at fault time, costs 1739 LtRAM writes one-shot (no speculation, no CoW)
+Class 2 (writable, LRW-managed): 128557 pages (~502.2 MB) — threshold policy decides per stability period
+Run: 2026-05-08/redis_xxlong_zipf
+  total_sweeps   = 55128   (6034.3s)
+  total periods  = 14743077
+  mean length    = 485.9 sweeps (48.59s)
+  total RO-time  = 7162996838 sweeps × pages (716299684 page-seconds of LtRAM-eligible time)
+  endurance-budget crossover (5y, ≤100%): T=301.00s  migs=373,958  pages=32.0%  endurance=96.07%
+  efficiency-optimal T (max page-secs per migration): T=1943.90s  migs=27,749  pages=18.5%  endurance=0.00%  (3105 page-sec/write)
+  %/% efficiency-optimal T: T=550.40s  pages=24.6%  endurance=3.63%  ratio=6.776
+  capacity-feasible threshold (page-seconds, ref only):  T = 85.2s
+  cluster-derived T (K-means in log-stability):
+    K=2: T =  10.00s   cluster centers (s) = [1.92  45.58]
+    K=3: T =  33.00s   cluster centers (s) = [1.27  10.83  96.63]
+    K=4: T =  67.00s   cluster centers (s) = [1.15  5.81  28.03  159.71]
+Wrote dirty_stability_{hist,cdf,costben*}.png and dirty_tiers_perepoch.png to /home/hsshim/projects/ltram-policy-bench/results/runs/2026-05-08/redis_xxlong_zipf
+  cluster plot K list = [2, 3, 4]  (silhouette-best K=2, clustering on 3439 unique 1s bins)
+
+redis (2026-05-08/redis_xxlong_zipf):
+  total_sweeps=55128  total_seconds=6034.3s  interval=100ms
+    K   boundary      T (s)     migrations   util %   NOR-budget % (this run)
+    2        1|2      10.00      6,436,800   159.6%                   0.0982%
+    3        1|2       4.00      8,462,580   170.7%                   0.1291%
+    3        2|3      33.00      3,647,398   131.8%                   0.0557%
+    4        1|2       3.00      9,051,547   172.9%                   0.1381%
+    4        2|3      13.00      5,824,061   154.9%                   0.0889%
+    4        3|4      67.00      2,183,856   107.7%                   0.0333%
+
+Wrote dirty_stability_clusters.png to /home/hsshim/projects/ltram-policy-bench/results/runs/2026-05-08/redis_xxlong_zipf
+
+redis (2026-05-08/redis_xxlong_zipf) — K-sweep profiling
+  total_sweeps=55128  total_seconds=6034.3s  interval=100ms
+  silhouette-best K = 2
+    K        inertia  silhouette  top T (s)   migrations   util %
+    2    21899675.88      0.5927       5.00    7,987,617   168.6%  ← best
+    3    10728022.19      0.5498      21.00    4,696,205   144.4%
+    4     6396655.38      0.5469      44.80    2,977,870   122.0%
+    5     4262395.88      0.5389      74.00    1,996,049   104.0%
+    6     3032319.63      0.5328     112.50    1,316,069    88.2%
+    7     2266673.60      0.5354     156.20      905,094    76.2%
+    8     1749471.40      0.5444     182.20      748,463    70.8%
+    9     1414450.36      0.5438     292.40      390,440    55.7%
+   10     1142926.05      0.5547     286.10      403,037    56.3%
+
+Wrote dirty_stability_kelbow.png to /home/hsshim/projects/ltram-policy-bench/results/runs/2026-05-08/redis_xxlong_zipf
+/home/hsshim/projects/ltram-policy-bench/workloads/monitoring/_phase_data.py:346: FutureWarning: Downcasting object dtype arrays on .fillna, .ffill, .bfill is deprecated and will change in a future version. Call result.infer_objects(copy=False) instead. To opt-in to the future behavior, set `pd.set_option('future.no_silent_downcasting', True)`
+  merged["writable"]    = merged["writable"].fillna(True)  # load-only pages: assume writable
+
+redis (2026-05-08/redis_xxlong_zipf) — endurance decomposition
+  total_sweeps=55128  total_seconds=6034.3s
+
+     T (s)    final %    inter %  1-time writes        recur/y   5y endur %  10y endur %
+       1.0       1.2%      98.8%        127,447 57,245,295,861   4367.4695%   8734.9389%
+       5.0       1.5%      98.5%        121,081 41,311,720,966   3151.8342%   6303.6684%
+      10.0       1.8%      98.2%        114,642 32,965,915,317   2515.0997%   5030.1995%
+      30.0       2.5%      97.5%         96,888 19,513,194,436   1488.7386%   2977.4772%
+      60.0       3.4%      96.6%         80,504 11,588,440,514    884.1278%   1768.2557%
+     120.0       5.1%      94.9%         63,236  5,814,678,752    443.6248%    887.2496%
+     300.0      11.1%      88.9%         41,634  1,259,212,005     96.0703%    192.1405%
+
+Wrote dirty_stability_endurance_split.png to /home/hsshim/projects/ltram-policy-bench/results/runs/2026-05-08/redis_xxlong_zipf
+[downsample] 130296 pages × 55128 sweeps → 1589 × 1576  (p_stride=82, t_stride=35)
+Wrote dirty_timeline_run.png, dirty_timeline_sorted_run.png, and dirty_timeline_active_run.png (127,404/130,296 active pages, 97.8%) to /home/hsshim/projects/ltram-policy-bench/results/runs/2026-05-08/redis_xxlong_zipf
+  pages quiet for ≥50% of run: 23659
+redis (2026-05-08/redis_xxlong_zipf) — LtRAM utilization simulation
+  total_sweeps=55128  total_seconds=6034.3s  n_pages=130296
+  T = 0s (instant):  peak 198.8% capacity  |  mean 198.3%  |  final 198.2%
+  T = 5.0s  (K=2 cluster top-boundary):  peak 198.7% capacity  |  mean 184.6%  |  final 184.8%
+  T = 21.0s  (K=3 cluster top-boundary):  peak 198.7% capacity  |  mean 158.0%  |  final 158.9%
+  T = 43.5s  (K=4 cluster top-boundary):  peak 198.7% capacity  |  mean 134.7%  |  final 135.7%
+
+Wrote dirty_ltram_utilization.png to /home/hsshim/projects/ltram-policy-bench/results/runs/2026-05-08/redis_xxlong_zipf
+Run: 2026-05-08/redis_xxlong_zipf
+  total_sweeps=110711 duration=12124.64s interval=100ms
+  saturation rate: 10.0 writes/sec
+  Class 2 cut:  max_stab ≥ 55355  (50% of run)
+  Class 3/4 cut: max_stab ≥ 5535  (5% of run)
+
+Four-class breakdown (1017.9 MB total):
+  Class 1 (static-RO):          1739 pages      6.8 MB  (  0.7%)  — place at fault, no tracking
+  Class 2 (write-once):       100718 pages    393.4 MB  ( 38.7%)  — effectively static-RO after init, easy migrate
+  Class 3 (read-heavy):        98546 pages    384.9 MB  ( 37.8%)  — LRW queue with occasional re-migrate
+  Class 4 (write-heavy):       59577 pages    232.7 MB  ( 22.9%)  — stays on DRAM
+
+  LtRAM-confident (Class 1 + 2):         400.2 MB ( 39.3% of workload)
+  LtRAM-eligible  (Class 1 + 2 + 3):     785.2 MB ( 77.1% of workload)
+  DRAM-required   (Class 4):             232.7 MB ( 22.9% of workload)
+  → with sufficient LtRAM, the LtRAM-eligible fraction could be displaced from DRAM
+
+Class 1 top VMAs:
+     672 pages  /usr/bin/redis-server
+     411 pages  /lib/libc.so.6
+     397 pages  /usr/lib/libstdc++.so.6.0.33
+     168 pages  /lib/libm.so.6
+      55 pages  /lib/ld-linux-x86-64.so.2
+      25 pages  /lib/libgcc_s.so.1
+
+Wrote dirty_hist_run.png, dirty_hist_full.png (if load CSV present), dirty_cdf.png, dirty_tiers.png, dirty_tiers_final.png to /home/hsshim/projects/ltram-policy-bench/results/runs/2026-05-08/redis_xxlong_zipf
+/home/hsshim/projects/ltram-policy-bench/workloads/monitoring/_phase_data.py:346: FutureWarning: Downcasting object dtype arrays on .fillna, .ffill, .bfill is deprecated and will change in a future version. Call result.infer_objects(copy=False) instead. To opt-in to the future behavior, set `pd.set_option('future.no_silent_downcasting', True)`
+  merged["writable"]    = merged["writable"].fillna(True)  # load-only pages: assume writable
+Class 1 (static-RO, !VM_WRITE): 1739 pages (~6.8 MB) — placed at fault time, costs 1739 LtRAM writes one-shot (no speculation, no CoW)
+Class 2 (writable, LRW-managed): 258841 pages (~1011.1 MB) — threshold policy decides per stability period
+Run: 2026-05-08/redis_xxlong_zipf
+  total_sweeps   = 110711   (12124.6s)
+  total periods  = 29582163
+  mean length    = 732.3 sweeps (73.23s)
+  total RO-time  = 21662918872 sweeps × pages (2166291887 page-seconds of LtRAM-eligible time)
+  endurance-budget crossover (5y, ≤100%): T=296.90s  migs=852,093  pages=66.1%  endurance=99.21%
+  efficiency-optimal T (max page-secs per migration): T=1521.80s  migs=172,172  pages=59.5%  endurance=0.00%  (4579 page-sec/write)
+  %/% efficiency-optimal T: T=564.20s  pages=62.2%  endurance=1.31%  ratio=47.606
+  capacity-feasible threshold (page-seconds, ref only):  T = 1521.8s
+  cluster-derived T (K-means in log-stability):
+    K=2: T =  10.00s   cluster centers (s) = [1.92  47.06]
+    K=3: T =  41.00s   cluster centers (s) = [1.41  13.67  119.41]
+    K=4: T =  80.00s   cluster centers (s) = [1.15  6.02  31.34  202.76]
+Wrote dirty_stability_{hist,cdf,costben*}.png and dirty_tiers_perepoch.png to /home/hsshim/projects/ltram-policy-bench/results/runs/2026-05-08/redis_xxlong_zipf
+  cluster plot K list = [2, 3, 4]  (silhouette-best K=2, clustering on 6202 unique 1s bins)
+
+redis (2026-05-08/redis_xxlong_zipf):
+  total_sweeps=110711  total_seconds=12124.6s  interval=100ms
+    K   boundary      T (s)     migrations   util %   NOR-budget % (this run)
+    2        1|2      10.00     12,910,659   251.1%                   0.1970%
+    3        1|2       5.00     16,020,531   260.1%                   0.2445%
+    3        2|3      41.00      6,368,593   216.5%                   0.0972%
+    4        1|2       3.00     18,152,809   264.4%                   0.2770%
+    4        2|3      14.00     11,334,854   245.0%                   0.1730%
+    4        3|4      80.00      3,751,366   192.6%                   0.0572%
+
+Wrote dirty_stability_clusters.png to /home/hsshim/projects/ltram-policy-bench/results/runs/2026-05-08/redis_xxlong_zipf
+
+redis (2026-05-08/redis_xxlong_zipf) — K-sweep profiling
+  total_sweeps=110711  total_seconds=12124.6s  interval=100ms
+  silhouette-best K = 2
+    K        inertia  silhouette  top T (s)   migrations   util %
+    2    46745647.75      0.5900       5.20   15,845,056   259.7%  ← best
+    3    23583342.44      0.5456      22.20    9,160,445   234.5%
+    4    14469489.84      0.5439      50.70    5,472,873   209.3%
+    5     9866127.63      0.5411     101.20    2,995,835   183.7%
+    6     7113055.08      0.5291     155.90    1,885,426   167.3%
+    7     5355813.24      0.5295     304.20      825,248   144.2%
+    8     4011330.31      0.5422     953.80      221,021   112.8%
+    9     3086918.82      0.5500    1194.90      190,980   106.6%
+   10     2465116.84      0.5515    1254.50      186,355   105.2%
+
+Wrote dirty_stability_kelbow.png to /home/hsshim/projects/ltram-policy-bench/results/runs/2026-05-08/redis_xxlong_zipf
+/home/hsshim/projects/ltram-policy-bench/workloads/monitoring/_phase_data.py:346: FutureWarning: Downcasting object dtype arrays on .fillna, .ffill, .bfill is deprecated and will change in a future version. Call result.infer_objects(copy=False) instead. To opt-in to the future behavior, set `pd.set_option('future.no_silent_downcasting', True)`
+  merged["writable"]    = merged["writable"].fillna(True)  # load-only pages: assume writable
+
+redis (2026-05-08/redis_xxlong_zipf) — endurance decomposition
+  total_sweeps=110711  total_seconds=12124.6s
+
+     T (s)    final %    inter %  1-time writes        recur/y   5y endur %  10y endur %
+       1.0       1.2%      98.8%        257,731 57,245,295,861   4367.6393%   8735.1087%
+       5.0       1.6%      98.4%        251,365 41,311,720,966   3151.9573%   6303.7915%
+      10.0       1.9%      98.1%        244,926 32,965,915,317   2515.1983%   5030.2980%
+      30.0       2.9%      97.1%        226,841 19,355,143,148   1476.7388%   2953.4190%
+      60.0       4.5%      95.5%        210,740 11,572,516,149    882.9483%   1765.8613%
+     120.0       7.5%      92.5%        193,929  5,924,606,555    452.0308%    904.0424%
+     300.0      20.2%      79.8%        172,158  1,300,332,953     99.2134%    198.4209%
+
+Wrote dirty_stability_endurance_split.png to /home/hsshim/projects/ltram-policy-bench/results/runs/2026-05-08/redis_xxlong_zipf
+[downsample] 260580 pages × 110711 sweeps → 1599 × 1582  (p_stride=163, t_stride=70)
+Wrote dirty_timeline_full.png, dirty_timeline_sorted_full.png, and dirty_timeline_active_full.png (257,692/260,580 active pages, 98.9%) to /home/hsshim/projects/ltram-policy-bench/results/runs/2026-05-08/redis_xxlong_zipf
+  pages quiet for ≥50% of run: 105265
+redis (2026-05-08/redis_xxlong_zipf) — LtRAM utilization simulation
+  total_sweeps=110711  total_seconds=12124.6s  n_pages=260580
+  T = 0s (instant):  peak 397.6% capacity  |  mean 298.6%  |  final 397.0%
+  T = 5.2s  (K=2 cluster top-boundary):  peak 397.5% capacity  |  mean 284.5%  |  final 383.1%
+  T = 21.2s  (K=3 cluster top-boundary):  peak 397.5% capacity  |  mean 258.1%  |  final 357.4%
+  T = 48.7s  (K=4 cluster top-boundary):  peak 397.5% capacity  |  mean 230.8%  |  final 330.4%
+
+Wrote dirty_ltram_utilization.png to /home/hsshim/projects/ltram-policy-bench/results/runs/2026-05-08/redis_xxlong_zipf
+/home/hsshim/projects/ltram-policy-bench/workloads/monitoring/_phase_data.py:346: FutureWarning: Downcasting object dtype arrays on .fillna, .ffill, .bfill is deprecated and will change in a future version. Call result.infer_objects(copy=False) instead. To opt-in to the future behavior, set `pd.set_option('future.no_silent_downcasting', True)`
+  merged["writable"]    = merged["writable"].fillna(True)  # load-only pages: assume writable
+
+redis (2026-05-08/redis_xxlong_zipf) — phase comparison
+  load: 6090.3s   run: 6034.3s
+
+     T (s)     load 5y%      run 5y%     full 5y%    load %pages     run %pages
+       1.0      0.1698%   4367.4695%   4367.6393%         97.6%         97.8%
+       5.0      0.1231%   3151.8342%   3151.9573%         92.5%         92.9%
+      10.0      0.0986%   2515.0997%   2515.1983%         87.2%         88.0%
+      30.0      0.0589%   1485.6931%   1485.7520%         73.2%         74.3%
+      60.0      0.0353%    880.4567%    880.4921%         60.7%         61.7%
+     120.0      0.0188%    440.8745%    440.8933%         47.7%         48.5%
+     300.0      0.0057%     94.7500%     94.7556%         31.5%         31.9%
+
+Wrote dirty_stability_phase_compare.png to /home/hsshim/projects/ltram-policy-bench/results/runs/2026-05-08/redis_xxlong_zipf
+/home/hsshim/projects/ltram-policy-bench/workloads/monitoring/_phase_data.py:346: FutureWarning: Downcasting object dtype arrays on .fillna, .ffill, .bfill is deprecated and will change in a future version. Call result.infer_objects(copy=False) instead. To opt-in to the future behavior, set `pd.set_option('future.no_silent_downcasting', True)`
+  merged["writable"]    = merged["writable"].fillna(True)  # load-only pages: assume writable
+/home/hsshim/projects/ltram-policy-bench/workloads/monitoring/dirty_phase_categories_plot.py:123: UserWarning: Setting the 'color' property will override the edgecolor or facecolor properties.
+  patches.append(mpatches.Patch(color=color, edgecolor="black", label=label))
+/home/hsshim/projects/ltram-policy-bench/workloads/monitoring/dirty_phase_categories_plot.py:121: UserWarning: Setting the 'color' property will override the edgecolor or facecolor properties.
+  patches.append(mpatches.Patch(color="white", edgecolor="white", label=label))
+redis (2026-05-08/redis_xxlong_zipf) — page categorization (load+run aware)
+  total: 260,580 pages (1018 MB)
+  C1 static-RO:                      1,739  (  0.7%)
+  C2 never-touched:                  1,149  (  0.4%)
+  C3 init-once (load only):        130,288  ( 50.0%)
+  C4 recurring (run events):       127,404  ( 48.9%)
+  stays-RO (C1+C2+C3):             133,176  ( 51.1%)
+Wrote dirty_phase_categories_full.png to /home/hsshim/projects/ltram-policy-bench/results/runs/2026-05-08/redis_xxlong_zipf
+[zipf] xxlong_zipf done at Fri May  8 07:17:36 PM PDT 2026
+[zipf] ALL DONE at Fri May  8 07:17:36 PM PDT 2026
