@@ -93,6 +93,9 @@ end_run() {
     # Snapshot vmstat after
     cp /proc/vmstat /mnt/results/vmstat-after.txt
 
+    # Snapshot the dmesgs to check for warnings
+    cp /var/log/messages /mnt/results/messages
+
     # Per-node memory breakdown
     for node in 0 1; do
       cat /sys/devices/system/node/node${node}/meminfo \
