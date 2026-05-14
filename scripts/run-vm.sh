@@ -68,7 +68,7 @@ $NUMACTL qemu-system-x86_64 \
   -numa dist,src=1,dst=0,val=20 \
   -kernel "$KERNEL" \
   -drive file="$ROOTFS",format=raw,if=virtio \
-  -append "root=/dev/vda rw console=ttyS0 nokaslr numa=on ltram_workload=$WORKLOAD interactive=$INTERACTIVE" \
+  -append "root=/dev/vda rw console=ttyS0 nokaslr numa=on numa_balancing=disbaled ltram_workload=$WORKLOAD interactive=$INTERACTIVE" \
   \
   -virtfs local,path="$WORKLOADS",mount_tag=workloads,security_model=passthrough \
   -virtfs local,path="$RESULTS",mount_tag=results,security_model=none \
@@ -76,7 +76,7 @@ $NUMACTL qemu-system-x86_64 \
   \
   -nographic \
   -serial mon:stdio \
-  -no-reboot # -s -S
+  -no-reboot
 
 if [[ $INTERACTIVE -eq 0 ]]; then
   # also try to plot the monitoring graphs
