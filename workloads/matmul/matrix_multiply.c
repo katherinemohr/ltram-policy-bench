@@ -59,7 +59,12 @@ void numa_mm_repeat(int iters)
     const size_t bytes = elems * sizeof(float);
 
     float *result = (float *)numa_alloc_onnode(bytes, 0); // node 0
-    float *A      = (float *)numa_alloc_onnode(bytes, 1); // node 1
+    // A was on node 1 (LtRAM), but ZONE_LTRAM is unreachable via the userspace
+    // NUMA API under the zone_ltram kernel (node 1 is out of N_MEMORY and
+    // requires __GFP_LTRAM), so numa_alloc_onnode(.,1) returns EINVAL. Keep A on
+    // node 0 as a DRAM baseline. TODO: route A into LtRAM via a read-only hint
+    // (madvise / read-only file-backed mmap) so the kernel tags it __GFP_LTRAM.
+    float *A      = (float *)numa_alloc_onnode(bytes, 0); // node 0 (was node 1/LtRAM)
     float *tmp    = (float *)numa_alloc_onnode(bytes, 0); // node 0
 
     if (!result || !A || !tmp) {
