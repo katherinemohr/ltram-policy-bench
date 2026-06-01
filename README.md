@@ -146,3 +146,126 @@ Once the initial setup is complete, the standard development loop is:
 4.  Check the outputs generated in the `results/` directory.
 
 Whenever you change the files in the overlay (ie. `run-on-vm-init.sh`), you will need to make sure they are actually updated in the `overlay/` folder and rebuild `buildroot/` with `make -j$(nproc)`
+
+---
+
+## LtRAM smoke test (`ltram_module/`)
+
+`ltram_module/ltram_smoketest.c` is an out-of-tree loadable kernel module
+that verifies `ZONE_LTRAM` allocation works end to end on the running
+kernel. Load it, read `dmesg`, unload it. It runs six checks once at
+module init:
+
+1. **Single-page allocation** from `GFP_LTRAM | __GFP_THISNODE` lands on
+   node 1, `ZONE_LTRAM`.
+2. **Bulk allocation** (`bulk_count` pages, default 64) all land on node 1
+   in `ZONE_LTRAM` with none misplaced.
+3. **Write/read** a known pattern through the page to confirm the LtRAM
+   page is real, usable memory.
+4. **`GFP_KERNEL` avoids LtRAM**: a normal kernel allocation must NOT land
+   on `ZONE_LTRAM` (verifies the zone fencing).
+5. **`GFP_HIGHUSER` avoids LtRAM**: the userspace-default allocation flag
+   must also avoid `ZONE_LTRAM`.
+6. **alloc / write / free / re-alloc** cycle: confirms freed LtRAM pages
+   return to the free list cleanly and are reusable.
+
+Note: the test uses `__GFP_THISNODE` alongside `GFP_LTRAM`. Plain
+`GFP_LTRAM` uses node 1's *fallback* zonelist, which lists node 0's zones
+after `ZONE_LTRAM`; if the `ZONE_LTRAM` attempt does not immediately
+succeed it can silently fall back to node 0. `__GFP_THISNODE` selects
+node 1's no-fallback zonelist so the allocation either gets an LtRAM page
+or NULL.
+
+### Building
+
+Build the kernel's in-tree modules first so `Module.symvers` exists
+(out-of-tree modules link against it):
+
+```bash
+cd linux
+make -j$(nproc) bzImage modules     # modules step generates Module.symvers
+cd ..
+```
+
+Then build the smoke test module against that kernel tree:
+
+```bash
+cd ltram_module
+make            # produces ltram_smoketest.ko
+cd ..
+```
+
+### Staging for the guest
+
+The guest mounts `workloads/` over 9p (at `/mnt/workloads` in the guest),
+so copy the `.ko` there:
+
+```bash
+cp ltram_module/ltram_smoketest.ko workloads/
+```
+
+### Running
+
+```bash
+bash scripts/run-vm.sh interactive
+```
+
+Inside the guest:
+
+```sh
+insmod /mnt/workloads/ltram_smoketest.ko bulk_count=128
+dmesg | grep ltram_smoketest        # expect "ALL TESTS PASSED"
+rmmod ltram_smoketest
+```
+
+`bulk_count` is a module parameter (default 64) controlling how many
+folios test 2 allocates.
+
+### Notes
+
+- The module taints the kernel ("loading out-of-tree module") and may
+  print a BTF mismatch warning; both are harmless for this test. The BTF
+  warning only appears if the kernel was built with
+  `CONFIG_DEBUG_INFO_BTF`. Building with debug info disabled (see below)
+  removes it.
+- After `rmmod`, node 1 `MemFree` should return to its full value
+  (`cat /sys/devices/system/node/node1/meminfo`).
+
+---
+
+## Recommended kernel config for this project
+
+Copying `/boot/config-$(uname -r)` from an Ubuntu host pulls in two
+settings that cause trouble; disable them:
+
+- **Module signing keys** point at files that do not exist in this tree
+  (`debian/canonical-certs.pem`), breaking the build:
+  ```bash
+  cd linux
+  scripts/config --set-str SYSTEM_TRUSTED_KEYS ""
+  scripts/config --set-str SYSTEM_REVOCATION_KEYS ""
+  ```
+- **Debug info / BTF** bloats every module ~10x (tens of GB total) and can
+  cause BTF-mismatch module load failures. Disable it for a much smaller,
+  faster build:
+  ```bash
+  cd linux
+  scripts/config --enable  DEBUG_INFO_NONE
+  scripts/config --disable DEBUG_INFO_DWARF5
+  scripts/config --disable DEBUG_INFO_DWARF4
+  scripts/config --disable DEBUG_INFO_DWARF_TOOLCHAIN_DEFAULT
+  make olddefconfig
+  grep "CONFIG_DEBUG_INFO=" .config   # expect: # CONFIG_DEBUG_INFO is not set
+  ```
+  (Keep `CONFIG_DEBUG_VM=y`: it enables the `VM_BUG_ON` assertions that
+  validate the LtRAM zone-fencing invariants.)
+
+The kernel source can grow past 20 GB with debug info on. If `/export` (or
+wherever the repo lives) is short on space, move the project to a roomier
+local filesystem and symlink it back:
+
+```bash
+sudo mkdir -p /scratch/$USER && sudo chown $USER:$USER /scratch/$USER
+mv ltram-policy-bench /scratch/$USER/
+ln -s /scratch/$USER/ltram-policy-bench <original-path>
+```
