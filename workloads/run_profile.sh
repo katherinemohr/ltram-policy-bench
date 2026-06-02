@@ -21,6 +21,10 @@ PROFILES="$HERE/profiles"
 PROFILER="$HERE/profile_workload.sh"
 RESULTS=/mnt/results
 
+# Ensure debugfs is mounted so we can read/capture /sys/kernel/debug/ltram/*
+# (minimal rootfs does not auto-mount it; harmless if already mounted).
+[ -e /sys/kernel/debug/ltram/stats ] || mount -t debugfs none /sys/kernel/debug 2>/dev/null || true
+
 list_all() {
     for f in "$PROFILES"/*.work; do
         [ -e "$f" ] || continue

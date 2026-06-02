@@ -24,7 +24,7 @@ OUT="/mnt/results/profile_${LABEL}.csv"
 snap() {
     awk '
     BEGIN {
-        order = "pgpgin pgpgout pgfault pgmajfault pgalloc_normal pgalloc_movable nr_file_pages nr_dirty nr_writeback workingset_refault_file nr_active_file nr_inactive_file nr_dirtied"
+        order = "pgpgin pgpgout pgfault pgmajfault pgalloc_normal pgalloc_movable nr_file_pages nr_anon_pages nr_dirty nr_writeback workingset_refault_file nr_active_file nr_inactive_file nr_dirtied"
         n = split(order, fields, " ")
     }
     /^[a-z_]+ [0-9]+/ {
@@ -70,7 +70,7 @@ mkdir -p /mnt/results
 # Headers if new file
 if [ ! -f "$OUT" ]; then
     cat > "$OUT" <<'EOF'
-label,phase,t,pgpgin,pgpgout,pgfault,pgmajfault,pgalloc_normal,pgalloc_movable,nr_file_pages,nr_dirty,nr_writeback,workingset_refault_file,nr_active_file,nr_inactive_file,nr_dirtied
+label,phase,t,pgpgin,pgpgout,pgfault,pgmajfault,pgalloc_normal,pgalloc_movable,nr_file_pages,nr_anon_pages,nr_dirty,nr_writeback,workingset_refault_file,nr_active_file,nr_inactive_file,nr_dirtied
 EOF
 fi
 
@@ -84,6 +84,10 @@ T0=$(date +%s)
 BEFORE=$(snap)
 echo "${LABEL},before,${T0},${BEFORE}" >> "$OUT"
 NODE_BEFORE="/tmp/.node_before_$$"; node_snap > "$NODE_BEFORE"
+# Snapshot the kernel LtRAM counters before the workload so the bottom line can
+# report PER-RUN deltas (this also cancels the boot residue automatically).
+LSTATS=/sys/kernel/debug/ltram/stats
+LT_BEFORE="/tmp/.lt_before_$$"; [ -r "$LSTATS" ] && cp "$LSTATS" "$LT_BEFORE" 2>/dev/null
 
 echo "=== Profiling ${LABEL}: $* ==="
 echo "Starting at t=${T0}"
@@ -97,6 +101,7 @@ sync   # flush any pending writes so writeback counters update
 AFTER=$(snap)
 echo "${LABEL},after,${T1},${AFTER}" >> "$OUT"
 NODE_AFTER="/tmp/.node_after_$$"; node_snap > "$NODE_AFTER"
+LT_AFTER="/tmp/.lt_after_$$"; [ -r "$LSTATS" ] && cp "$LSTATS" "$LT_AFTER" 2>/dev/null
 
 DUR=$((T1 - T0))
 echo "Workload exit=${RC}, duration=${DUR}s"
@@ -154,20 +159,21 @@ cat <<'EOF'
 
 EOF
 
-# Print human-readable deltas
+# Print human-readable deltas. The CSV keeps full history (and lives on the
+# host-shared results dir, so it survives VM restarts), but we only ever report
+# the LATEST before/after pair -- accumulate and print at END, no stale blocks.
 echo "=== Deltas for ${LABEL} ==="
-awk -F, '
+awk -F, -v L="$LABEL" '
     NR==1 { next }                             # header
-    $1=="'"$LABEL"'" && $2=="before" { for (i=4; i<=NF; i++) b[i]=$i; names_set=0 }
-    $1=="'"$LABEL"'" && $2=="after"  {
-        # field name lookup
-        split("pgpgin pgpgout pgfault pgmajfault pgalloc_normal pgalloc_movable nr_file_pages nr_dirty nr_writeback workingset_refault_file nr_active_file nr_inactive_file nr_dirtied", names, " ")
-        for (i=4; i<=NF; i++) {
-            d = $i - b[i]
-            printf "  %-30s %+d\n", names[i-3], d
-        }
+    $1==L && $2=="before" { for (i=4; i<=NF; i++) b[i]=$i }
+    $1==L && $2=="after"  { for (i=4; i<=NF; i++) d[i]=$i-b[i]; nf=NF; seen=1 }
+    END {
+        if (!seen) { print "  (no completed run for " L " yet)"; exit }
+        split("pgpgin pgpgout pgfault pgmajfault pgalloc_normal pgalloc_movable nr_file_pages nr_anon_pages nr_dirty nr_writeback workingset_refault_file nr_active_file nr_inactive_file nr_dirtied", names, " ")
+        for (i=4; i<=nf; i++)
+            printf "  %-30s %+d\n", names[i-3], d[i]
     }
-' "$OUT" | tail -20
+' "$OUT"
 
 # --- LtRAM placement deltas (node-stat based) -------------------------------
 # Memory fields are kB in the source; shown here as 4 KB pages (kB/4) to match
@@ -210,5 +216,96 @@ echo "=== Quick read/write classification (file pages only) ==="
 echo "  read-heavy : pgpgin >> pgpgout and nr_dirtied small"
 echo "  write-heavy: pgpgout and nr_dirtied both grow"
 echo "  See the counter legend above for what each number actually measures."
+
+# ===================== BOTTOM LINE (presentation summary) ===================
+# Combines the vmstat deltas (DRAM anon/file), the kernel LtRAM counters, and
+# the wear histogram into the handful of derived numbers that tell the story:
+# how much went to LtRAM, how much stayed read-only, DRAM footprint reduction,
+# device utilization, and wear distribution. Printed AND saved as a key,value
+# CSV to profile_<label>.summary for slides/plots.
+SUMMARY="/mnt/results/profile_${LABEL}.summary"
+
+# DRAM deltas for the latest run (col 8 pgalloc_normal, 10 nr_file_pages,
+# 11 nr_anon_pages).
+eval "$(awk -F, -v L="$LABEL" '
+    $1==L && $2=="before" { a=$8; f=$10; n=$11 }
+    $1==L && $2=="after"  { da=$8-a; df=$10-f; dn=$11-n }
+    END { printf "D_ALLOC=%d D_FILE=%d D_ANON=%d", da, df, dn }
+' "$OUT")"
+
+# getd: per-run DELTA of a cumulative LtRAM counter (after - before).
+# getn: current value from the after snapshot (for gauges + lifetime wear).
+getd() {
+    [ -s "$LT_AFTER" ] || { echo 0; return; }
+    _a=$(awk -v k="$1" '$1==k{print $2}' "$LT_AFTER"); _b=0
+    [ -s "$LT_BEFORE" ] && _b=$(awk -v k="$1" '$1==k{print $2}' "$LT_BEFORE")
+    echo $(( ${_a:-0} - ${_b:-0} ))
+}
+getn() { [ -s "$LT_AFTER" ] && awk -v k="$1" '$1==k{print $2}' "$LT_AFTER" || echo 0; }
+
+awk -v label="$LABEL" -v summary="$SUMMARY" \
+    -v d_alloc="${D_ALLOC:-0}" -v d_file="${D_FILE:-0}" -v d_anon="${D_ANON:-0}" \
+    -v p_alloc="$(getd placed_at_alloc)" -v p_mig="$(getd placed_migrated_in)" \
+    -v wf_a="$(getd write_faulted_of_alloc)" -v wf_m="$(getd write_faulted_of_migrated)" \
+    -v mb="$(getd migrated_back_of_alloc)" -v mb2="$(getd migrated_back_of_migrated)" \
+    -v freed="$(getd freed)" -v resid_now="$(getn currently_resident_pages)" \
+    -v frtot="$(getn frames_total)" -v frused="$(getn frames_ever_programmed)" \
+    -v emin="$(getn erase_count_min)" -v emean="$(getn erase_count_mean_x1000)" \
+    -v emed="$(getn erase_count_median)" -v emode="$(getn erase_count_mode)" \
+    -v emax="$(getn erase_count_max)" -v eskew="$(getn skew_max_over_mean_x1000)" '
+function mb_(p){ return p*4.0/1024 }
+function pct(a,b){ return b>0 ? a*100.0/b : 0 }
+BEGIN {
+    placed  = p_alloc + p_mig          # placed this run (gross)
+    net     = placed - freed           # net retained in LtRAM this run
+    wf      = wf_a + wf_m
+    backout = mb + mb2
+    ro      = placed - wf
+    dram    = d_alloc                  # DRAM pages allocated this run
+    foot    = dram + placed            # pages allocated this run (DRAM + LtRAM)
+
+    printf "\n=== BOTTOM LINE: %s  (per-run deltas; wear is lifetime) ===\n", label
+    printf "DRAM allocated     : %d pages (%.1f MB)   [anon %d, file-cache %d]\n",
+           dram, mb_(dram), d_anon, d_file
+    printf "LtRAM placed       : %d pages (%.1f MB)   [at-alloc %d, migrated %d]\n",
+           placed, mb_(placed), p_alloc, p_mig
+    printf "  freed %d, net retained %d (%.1f MB)  <- churn\n", freed, net, mb_(net)
+    printf "  LtRAM share of alloc       : %.2f%%  (offload / DRAM footprint reduction)\n", pct(placed, foot)
+    printf "LtRAM utilization  : %d / %d frames resident now = %.2f%% of device\n",
+           resid_now, frtot, pct(resid_now, frtot)
+    printf "Read-only vs RW    : read-only %d (%.1f%%), write-faulted %d, repatriated %d\n",
+           ro, pct(ro, placed), wf, backout
+    printf "Placement perf     : write-back rate = %.2f%%  (lower is better)\n", pct(wf, placed)
+    printf "Wear (programs/frame, lifetime, used frames): min %d  mean %.3f  median %d  mode %d  max %d  skew %.2fx\n",
+           emin, emean/1000.0, emed, emode, emax, eskew/1000.0
+    printf "  frames touched   : %d / %d = %.2f%% of device\n", frused, frtot, pct(frused, frtot)
+
+    printf "metric,value\n"                                   > summary
+    printf "dram_pages,%d\n", dram                            >> summary
+    printf "dram_anon_pages,%d\n", d_anon                     >> summary
+    printf "dram_file_pages,%d\n", d_file                     >> summary
+    printf "ltram_placed_pages,%d\n", placed                  >> summary
+    printf "ltram_placed_at_alloc,%d\n", p_alloc              >> summary
+    printf "ltram_placed_migrated,%d\n", p_mig                >> summary
+    printf "ltram_freed_pages,%d\n", freed                    >> summary
+    printf "ltram_net_retained_pages,%d\n", net               >> summary
+    printf "ltram_share_of_alloc_pct,%.4f\n", pct(placed, foot) >> summary
+    printf "ltram_resident_now_pages,%d\n", resid_now         >> summary
+    printf "ltram_util_pct,%.4f\n", pct(resid_now, frtot)     >> summary
+    printf "ltram_readonly_pages,%d\n", ro                    >> summary
+    printf "ltram_write_faulted_pages,%d\n", wf               >> summary
+    printf "ltram_repatriated_pages,%d\n", backout            >> summary
+    printf "writeback_rate_pct,%.4f\n", pct(wf, placed)       >> summary
+    printf "wear_min,%d\n", emin                              >> summary
+    printf "wear_mean,%.4f\n", emean/1000.0                   >> summary
+    printf "wear_median,%d\n", emed                           >> summary
+    printf "wear_mode,%d\n", emode                            >> summary
+    printf "wear_max,%d\n", emax                              >> summary
+    printf "wear_skew_max_over_mean,%.4f\n", eskew/1000.0     >> summary
+    printf "frames_touched,%d\n", frused                      >> summary
+    printf "frames_total,%d\n", frtot                         >> summary
+}'
+echo "  [saved $SUMMARY]"
+rm -f "$LT_BEFORE" "$LT_AFTER"
 
 exit $RC

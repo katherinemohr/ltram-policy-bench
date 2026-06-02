@@ -20,6 +20,9 @@ start_run() {
     mount -t 9p -o trans=virtio results /mnt/results
     mount -t 9p -o trans=virtio inputs /mnt/inputs
 
+    # debugfs for the LtRAM counters (/sys/kernel/debug/ltram/*)
+    mount -t debugfs none /sys/kernel/debug 2>/dev/null
+
     # Verify NUMA topology was picked up correctly
     numactl --hardware > /mnt/results/numa-topology.txt
 
@@ -42,14 +45,13 @@ run_workload() {
         return 0
     fi
 
-    echo "Kernel boot parameter requested workload: $1"
-
-    case "$1" in
-        matmul) matmul ;;
-        gapbs) gapbs_pagerank ;;
-        redis) redis ;;
-        *) echo "Unknown workload: $1. Defaulting to matmul."; matmul ;;
-    esac
+    echo "Profiling requested workload(s): $1"
+    # Config-driven profiler harness: runs the workload(s), prints the BOTTOM
+    # LINE to this serial console, and saves profile_<w>.{csv,node,ltram,summary}
+    # to /mnt/results (host: results/). Pass a name (matmul/pagerank/ycsbc/
+    # filewrite/rwstress) or "all". The old hardcoded matmul/gapbs/redis
+    # functions below are kept only for reference; this path supersedes them.
+    sh /mnt/workloads/run_profile.sh "$1"
 }
 
 matmul() {

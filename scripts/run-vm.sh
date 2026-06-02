@@ -1,8 +1,9 @@
 #!/bin/bash
 # Check if at least one argument is provided
 if [ "$#" -lt 1 ]; then
-    echo "Usage: ./run-vm.sh [workload_name|interactive]"
-    echo "Available workloads: matmul, gapbs, redis, interactive"
+    echo "Usage: ./run-vm.sh [workload_name|all|interactive]"
+    echo "Available workloads: matmul, pagerank, ycsbc, filewrite, rwstress, all, interactive"
+    echo "  e.g. ./run-vm.sh all   (profiles every workload, prints bottom lines, powers off)"
     exit 1
 fi
 
