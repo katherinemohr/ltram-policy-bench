@@ -37,3 +37,6 @@ install/
 # Precompiled Headers
 *.gch
 *.pch
+
+# Staging copy of profiling script (canonical lives in scripts/)
+workloads/profile_workload.sh
