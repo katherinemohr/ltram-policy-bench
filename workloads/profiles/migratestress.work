@@ -1,0 +1,5 @@
+# 1,000,000 DRAM->LtRAM migrations (+ repatriations) with per-page data
+# integrity and wear. Validates the migration path at scale.
+LABEL=migratestress
+PREP=
+RUN='/mnt/workloads/repat_test/ltram_migrate_stress 1000000 512'

@@ -1,0 +1,4 @@
+# Exhaustive LtRAM repatriation test suite (9 cases + summary). Self-validating.
+LABEL=repatsuite
+PREP=
+RUN='/mnt/workloads/repat_test/ltram_repat_suite'

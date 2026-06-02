@@ -57,9 +57,32 @@ for name in "$@"; do
     LABEL="$name"; PREP=""; RUN=""
     . "$f"
 
+    # Per-run output dir: results/<test>/<YYMMDD__HHMMSS>/ -- nothing is
+    # overwritten, every run is kept. profile_workload.sh honors $LTRAM_RUN_DIR
+    # so its csv/node/summary land in the same folder as the run.log + .ltram.
+    TS=$(date +%y%m%d__%H%M%S 2>/dev/null || echo unknown)
+    RUN_DIR="$RESULTS/$LABEL/$TS"
+    mkdir -p "$RUN_DIR"
+    export LTRAM_RUN_DIR="$RUN_DIR"
+
+    # Record which kernel this run used (build number from uname + optional
+    # feature notes from workloads/KERNEL_INFO.txt) so a saved folder is
+    # self-explanatory without re-running.
+    {
+        echo "run:      $TS"
+        echo "workload: $LABEL"
+        echo "command:  $RUN"
+        echo "build:    $(uname -v 2>/dev/null | grep -o '#[0-9]*' | head -1)"
+        echo "kernel:   $(uname -srm 2>/dev/null) $(uname -v 2>/dev/null)"
+        if [ -r "$HERE/KERNEL_INFO.txt" ]; then
+            echo "notes:"
+            sed 's/^/  /' "$HERE/KERNEL_INFO.txt"
+        fi
+    } > "$RUN_DIR/meta.txt"
+
     echo ""
     echo "############################################################"
-    echo "# workload: $LABEL"
+    echo "# workload: $LABEL    ->  results/$LABEL/$TS/"
     echo "############################################################"
 
     if [ -n "$PREP" ]; then
@@ -67,23 +90,21 @@ for name in "$@"; do
         sh -c "$PREP"
     fi
 
-    # Measured window: profile_workload.sh syncs, drops caches, snapshots
-    # /proc/vmstat before/after, and runs the command we hand it.
-    sh "$PROFILER" "$LABEL" sh -c "$RUN"
+    # Measured window. Tee the whole console output to run.log so the run is
+    # fully reproducible from its saved folder.
+    sh "$PROFILER" "$LABEL" sh -c "$RUN" 2>&1 | tee "$RUN_DIR/run.log"
 
-    # If the kernel exposes LtRAM placement/repatriation counters, capture them
-    # alongside the vmstat profile so each run has its LtRAM verdict next to it.
+    # Snapshot the kernel LtRAM counters into the same folder.
     if [ -r /sys/kernel/debug/ltram/stats ]; then
-        cp /sys/kernel/debug/ltram/stats "$RESULTS/profile_${LABEL}.ltram"
-        echo "[ltram] saved $RESULTS/profile_${LABEL}.ltram"
+        cp /sys/kernel/debug/ltram/stats "$RUN_DIR/profile_${LABEL}.ltram"
     fi
 
-    ran="$ran $LABEL"
+    unset LTRAM_RUN_DIR
+    ran="$ran $LABEL/$TS"
 done
 
 echo ""
-echo "=== done. profiled:$ran ==="
-echo "CSVs in $RESULTS (host: results/):"
-for l in $ran; do
-    echo "  profile_${l}.csv"
+echo "=== done. saved runs (host: results/<test>/<timestamp>/): ==="
+for r in $ran; do
+    echo "  results/$r/   (run.log, profile_*.{csv,node,ltram,summary})"
 done

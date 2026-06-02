@@ -1,0 +1,6 @@
+# Repatriation correctness test: lands a read-only file page in LtRAM, writes
+# it, and verifies (via pagemap PFN + ltram stats) that it moved to DRAM and
+# migrated_back incremented. Self-validating; prints PASS/FAIL.
+LABEL=repat
+PREP=
+RUN='/mnt/workloads/repat_test/ltram_repat_test 64'

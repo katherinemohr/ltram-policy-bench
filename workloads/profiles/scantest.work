@@ -1,0 +1,5 @@
+# Scanning-hand (autonomous placement policy) self-test: write-cold pages
+# migrate to LtRAM, write-hot pages stay in DRAM, data integrity preserved.
+LABEL=scantest
+PREP=
+RUN='/mnt/workloads/repat_test/ltram_scan_test'

@@ -1,0 +1,6 @@
+# DRAM->LtRAM migration suite + data integrity: unique per-page patterns,
+# verify content survives migration AND repatriation (round-trip), plus
+# eligibility and token-throttle checks. Self-validating PASS/FAIL.
+LABEL=migratesuite
+PREP=
+RUN='/mnt/workloads/repat_test/ltram_migrate_suite'

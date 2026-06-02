@@ -1,0 +1,6 @@
+# DRAM->LtRAM migration mechanism test: allocate a writable page (DRAM), trigger
+# migration via /sys/kernel/debug/ltram/migrate_va, verify PFN moved to LtRAM
+# and placed_migrated_in +1. Proves the placement mechanism.
+LABEL=migrate
+PREP=
+RUN='/mnt/workloads/repat_test/ltram_migrate_test'

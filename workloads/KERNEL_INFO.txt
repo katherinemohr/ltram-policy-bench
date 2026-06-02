@@ -1,0 +1,14 @@
+LtRAM kernel feature state (update when the kernel changes; uname gives the #NN):
+
+- ZONE_LTRAM on node 1; read-only-VMA fault routing -> LtRAM (shared excluded).
+- Repatriation LtRAM->DRAM on write via COW in do_wp_page (validated to 1M).
+- DRAM->LtRAM migration MECHANISM: migrate_va / migrate_range debugfs triggers
+  (token-gated 42/s); migrated pages write-protected so writes repatriate.
+- SCANNING HAND (autonomous placement POLICY): kthread CLOCK over a target pid's
+  private writable anon pages (write debugfs scan_pid to attach). Ages pages by
+  clearing the dirty bit; a page clean for a full lap = write-cold -> migrated to
+  LtRAM (endurance-gated, write-protected). Anon-only, THP skipped (v1). Idle
+  until scan_pid set. Tunables: scan_interval_ms, scan_batch, scan_max_migrate.
+- Instrumentation: /sys/kernel/debug/ltram/{stats,erase_histogram,reset,
+  migrate_va,migrate_range,scan_pid}; provenance (alloc vs migrated), origin-
+  split read-only %, per-frame wear, freed, tokens, scan_passes/scan_migrated.

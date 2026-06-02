@@ -1,0 +1,6 @@
+# High-volume LtRAM repatriation stress: 1,000,000 repatriations, verifies
+# every LtRAM page moves to DRAM and migrated_back tracks it. Also a heavy
+# wear generator (frames recycled thousands of times -> large erase skew).
+LABEL=repatstress
+PREP=
+RUN='/mnt/workloads/repat_test/ltram_repat_stress 1000000 512'

@@ -18,7 +18,13 @@ if [ -z "$LABEL" ] || [ $# -eq 0 ]; then
     exit 1
 fi
 
-OUT="/mnt/results/profile_${LABEL}.csv"
+# Per-run output directory: results/<label>/<YYMMDD__HHMMSS>/ so nothing is
+# overwritten and every run is kept. run_profile.sh sets $LTRAM_RUN_DIR (so the
+# .ltram/run.log it writes land in the same folder); standalone we make our own.
+RUN_DIR="${LTRAM_RUN_DIR:-/mnt/results/${LABEL}/$(date +%y%m%d__%H%M%S 2>/dev/null || echo unknown)}"
+mkdir -p "$RUN_DIR" 2>/dev/null
+
+OUT="$RUN_DIR/profile_${LABEL}.csv"
 
 # Extract the counters we care about from /proc/vmstat. Print one CSV row.
 snap() {
@@ -92,9 +98,21 @@ LT_BEFORE="/tmp/.lt_before_$$"; [ -r "$LSTATS" ] && cp "$LSTATS" "$LT_BEFORE" 2>
 echo "=== Profiling ${LABEL}: $* ==="
 echo "Starting at t=${T0}"
 
-# Run the workload (timed)
-"$@"
-RC=$?
+# Run the workload (timed). With LTRAM_SCAN=1 the workload runs in the
+# background and the kernel scanning hand is pointed at its pid, so the
+# autonomous placement policy migrates its write-cold pages *during* the run.
+SCAN_PID_FILE=/sys/kernel/debug/ltram/scan_pid
+if [ "${LTRAM_SCAN:-0}" = 1 ] && [ -w "$SCAN_PID_FILE" ]; then
+    "$@" &
+    WPID=$!
+    echo "$WPID" > "$SCAN_PID_FILE"
+    echo "[scan] scanning hand attached to pid $WPID"
+    wait "$WPID"; RC=$?
+    echo -1 > "$SCAN_PID_FILE"
+else
+    "$@"
+    RC=$?
+fi
 
 T1=$(date +%s)
 sync   # flush any pending writes so writeback counters update
@@ -181,7 +199,7 @@ awk -F, -v L="$LABEL" '
 # allocation counts (the per-LtRAM-node "pgalloc" that vmstat lacks).
 # Persist the LtRAM placement report to a sidecar so it survives the VM exit
 # (the CSV holds only vmstat counters; this is the node-stat side).
-NODE_OUT="/mnt/results/profile_${LABEL}.node"
+NODE_OUT="$RUN_DIR/profile_${LABEL}.node"
 {
     echo "# LtRAM placement for ${LABEL} (node ${LTRAM_NODE} = ZONE_LTRAM only)"
     echo "# memory deltas in 4 KB pages; numa_* are cumulative alloc counts"
@@ -223,7 +241,7 @@ echo "  See the counter legend above for what each number actually measures."
 # how much went to LtRAM, how much stayed read-only, DRAM footprint reduction,
 # device utilization, and wear distribution. Printed AND saved as a key,value
 # CSV to profile_<label>.summary for slides/plots.
-SUMMARY="/mnt/results/profile_${LABEL}.summary"
+SUMMARY="$RUN_DIR/profile_${LABEL}.summary"
 
 # DRAM deltas for the latest run (col 8 pgalloc_normal, 10 nr_file_pages,
 # 11 nr_anon_pages).
