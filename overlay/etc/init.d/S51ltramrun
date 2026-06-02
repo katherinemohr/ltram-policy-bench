@@ -33,6 +33,7 @@ start_run() {
 
     # Start monitoring
     sh /mnt/workloads/monitoring/meminfo_log.sh > /mnt/results/meminfo_$1.txt &
+    # sh /mnt/workloads/monitoring/smaps_log.sh $$ > /mnt/results/smaps_$1.txt &
 }
 
 run_workload() {
@@ -59,7 +60,7 @@ matmul() {
     numactl --cpunodebind=0 --membind=0 /mnt/workloads/matmul/matrix_multiply > /mnt/results/matrix-output.txt &
     WORKLOAD_PID=$!
     echo "$WORKLOAD_PID" > /mnt/results/workload.pid
-    python /mnt/workloads/monitoring/smaps_log.py $(cat /mnt/results/workload.pid) -i 1 > /mnt/results/smaps_matmul.txt
+    # python /mnt/workloads/monitoring/smaps_log.py $(cat /mnt/results/workload.pid) -i 1 > /mnt/results/smaps_matmul.txt
     wait "$WORKLOAD_PID"
 
     echo "Matrix Multiplication complete."
@@ -73,7 +74,7 @@ gapbs_pagerank() {
     numactl --cpunodebind=0 --membind=0 /mnt/workloads/pr -g 20 > /mnt/results/pr-output.txt 2>&1 &
     WORKLOAD_PID=$!
     echo "$WORKLOAD_PID" > /mnt/results/workload.pid
-    python /mnt/workloads/monitoring/smaps_log.py $(cat /mnt/results/workload.pid) -i 1 > /mnt/results/smaps_gapbs.txt
+    # python /mnt/workloads/monitoring/smaps_log.py $(cat /mnt/results/workload.pid) -i 1 > /mnt/results/smaps_gapbs.txt
     wait "$WORKLOAD_PID"
 
     echo "PageRank complete."
@@ -90,7 +91,7 @@ redis() {
 
     WORKLOAD_PID=$(cat /mnt/results/redis.pid)
     echo "$WORKLOAD_PID" > /mnt/results/workload.pid
-    python /mnt/workloads/monitoring/smaps_log.py $(redis-cli info server | grep process_id | cut -d: -f2) -i 1 > /mnt/results/smaps_redis.txt &
+    # python /mnt/workloads/monitoring/smaps_log.py $(redis-cli info server | grep process_id | cut -d: -f2) -i 1 > /mnt/results/smaps_redis.txt &
 
     WORKLOAD_PATH="/mnt/workloads/YCSB-C/workloads/workloadmini.spec"
 
