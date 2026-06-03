@@ -1,0 +1,7 @@
+# HEADLINE: LtRAM utilization + repatriation vs write ratio (scan on redis).
+# Loops read/write mixes in one boot, fresh redis per ratio, token cap off
+# (offload ceiling). Writes results/writeratio/<ts>/writeratio.csv. Tune the
+# ratio list / ops with RATIOS=, OPC=, SCAN_N= if needed.
+LABEL=writeratio
+PREP=
+RUN='sh /mnt/workloads/ltram_writeratio_sweep.sh'

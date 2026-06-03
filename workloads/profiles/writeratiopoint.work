@@ -1,0 +1,5 @@
+# One write-ratio point per boot (clean-boot isolation). write ratio via cmdline
+# ltram_wr=, scan_batch via ltram.scan_batch=. Appends to the sweep's dir.
+LABEL=writeratiopoint
+PREP=
+RUN='sh /mnt/workloads/ltram_writeratio_point.sh'

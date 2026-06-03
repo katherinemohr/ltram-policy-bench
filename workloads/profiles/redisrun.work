@@ -1,0 +1,5 @@
+# redis LtRAM offload timeseries at a write ratio (cmdline ltram_wr=, default 10).
+# Scan on redis during the transaction phase; samples util + write-back over time.
+LABEL=redisrun
+PREP=
+RUN='sh /mnt/workloads/ltram_redis_run.sh'

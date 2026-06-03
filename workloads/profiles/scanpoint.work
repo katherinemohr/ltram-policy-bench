@@ -1,0 +1,7 @@
+# One per-boot scan point for the per-boot scan_batch sweep. scan_batch/token_rate
+# arrive via the kernel cmdline (ltram.scan_batch=, ltram.token_rate=). Appends a
+# row to results/scanboot/sweep.csv. Do NOT set LTRAM_SCAN -- the script attaches
+# the scanner to redis itself.
+LABEL=scanpoint
+PREP=
+RUN='sh /mnt/workloads/ltram_scan_point.sh'

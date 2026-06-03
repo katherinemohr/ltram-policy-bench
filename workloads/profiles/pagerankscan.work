@@ -1,0 +1,8 @@
+# pagerank with the scanning hand attached, token bucket at the realistic 42/s.
+# The CSR graph lives in the pr process itself, so LTRAM_SCAN=1 (attach scanner
+# to the workload pid) is the right target -- unlike ycsbc/redis. -n 3 -i 100
+# lengthens the read-only PR phase so migration has time to accrue at 42/s.
+export LTRAM_SCAN=1
+LABEL=pagerankscan
+PREP=
+RUN='numactl --cpunodebind=0 --membind=0 /mnt/workloads/pr -g 20 -n 3 -i 100'

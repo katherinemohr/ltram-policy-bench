@@ -1,0 +1,7 @@
+# Long wear-accumulation run for the wear-distribution plot (~1.5 h unattended).
+# 50M DRAM->LtRAM migrations program LtRAM frames repeatedly; the buddy
+# allocator's reuse skew shows up in the per-frame program counts (captured as
+# profile_migratestresslong.histogram). Motivates the wear-leveling allocator.
+LABEL=migratestresslong
+PREP=
+RUN='/mnt/workloads/repat_test/ltram_migrate_stress 50000000 512'

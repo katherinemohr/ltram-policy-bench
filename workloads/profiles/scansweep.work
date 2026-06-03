@@ -1,0 +1,7 @@
+# Scan-parameter sensitivity: sweep scan_batch (N PTEs/wake) against ycsbc/redis
+# at a fixed mix. Measures throughput overhead (vs scan-off baseline), the scan
+# kthread's CPU time, and LtRAM placement at each N. Writes its own CSV under
+# results/scansweep/<ts>/sweep.csv. Edit the spec/batch-list as args if desired.
+LABEL=scansweep
+PREP=
+RUN='sh /mnt/workloads/ltram_scan_sweep.sh'

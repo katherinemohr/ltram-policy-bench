@@ -1,0 +1,4 @@
+# Is YCSB-C lock_stl clean-on-read (good LtRAM tenant) or churning like redis?
+LABEL=lockstldirty
+PREP=
+RUN='sh /mnt/workloads/ltram_lockstl_dirty.sh'

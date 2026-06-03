@@ -1,0 +1,7 @@
+# Pagerank LtRAM offload (clean read-only headline): scan OFF during graph build,
+# ON for a long trial phase; samples residency over time. Manages scan_pid itself
+# (do NOT set LTRAM_SCAN). Tune G/TRIALS/ITERS via env. Use TOKEN_RATE=0 for the
+# offload ceiling. Writes results/<ts>/pagerank_timeseries.csv.
+LABEL=pagerankrun
+PREP=
+RUN='sh /mnt/workloads/ltram_pagerank_run.sh'

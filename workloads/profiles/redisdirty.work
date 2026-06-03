@@ -1,0 +1,5 @@
+# Root-cause diagnostic: measures how many redis pages get WRITTEN during pure
+# reads (soft-dirty) -> the hard ceiling on LtRAM offload. No scan involved.
+LABEL=redisdirty
+PREP=
+RUN='sh /mnt/workloads/ltram_redis_dirty.sh'

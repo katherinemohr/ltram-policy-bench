@@ -1,0 +1,5 @@
+# Synthetic clean tunable-write-ratio workload (reads = pure loads). Offload
+# timeseries at cmdline ltram_wr=. Pagerank-like at 0%, degrades with write ratio.
+LABEL=synthrun
+PREP=
+RUN='sh /mnt/workloads/ltram_synth_run.sh'

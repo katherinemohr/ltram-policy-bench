@@ -53,8 +53,10 @@ for name in "$@"; do
         continue
     fi
 
-    # Reset then load this workload's definition.
-    LABEL="$name"; PREP=""; RUN=""
+    # Reset then load this workload's definition. LTRAM_SCAN defaults off; a
+    # .work may "export LTRAM_SCAN=1" to have the profiler attach the scanning
+    # hand to its pid (reset here so it never leaks to the next workload).
+    LABEL="$name"; PREP=""; RUN=""; export LTRAM_SCAN=0
     . "$f"
 
     # Per-run output dir: results/<test>/<YYMMDD__HHMMSS>/ -- nothing is
@@ -94,10 +96,13 @@ for name in "$@"; do
     # fully reproducible from its saved folder.
     sh "$PROFILER" "$LABEL" sh -c "$RUN" 2>&1 | tee "$RUN_DIR/run.log"
 
-    # Snapshot the kernel LtRAM counters into the same folder.
+    # Snapshot the kernel LtRAM counters + per-frame wear histogram into the
+    # same folder (the histogram is the data for the wear-distribution plot).
     if [ -r /sys/kernel/debug/ltram/stats ]; then
         cp /sys/kernel/debug/ltram/stats "$RUN_DIR/profile_${LABEL}.ltram"
     fi
+    [ -r /sys/kernel/debug/ltram/erase_histogram ] && \
+        cp /sys/kernel/debug/ltram/erase_histogram "$RUN_DIR/profile_${LABEL}.histogram"
 
     unset LTRAM_RUN_DIR
     ran="$ran $LABEL/$TS"

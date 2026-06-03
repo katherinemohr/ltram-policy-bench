@@ -1,6 +1,7 @@
 mkdir -p /scratch/hsshim/ltram-policy-bench/linux/tools/objtool && make O=/scratch/hsshim/ltram-policy-bench/linux subdir=tools/objtool --no-print-directory -C objtool 
   INSTALL libsubcmd_headers
   CALL    scripts/checksyscalls.sh
+  CC      mm/ltram.o
   AR      mm/built-in.a
   AR      built-in.a
   AR      vmlinux.a
@@ -39,4 +40,4 @@ mkdir -p /scratch/hsshim/ltram-policy-bench/linux/tools/objtool && make O=/scrat
   LD      arch/x86/boot/setup.elf
   OBJCOPY arch/x86/boot/setup.bin
   BUILD   arch/x86/boot/bzImage
-Kernel: arch/x86/boot/bzImage is ready  (#26)
+Kernel: arch/x86/boot/bzImage is ready  (#27)

@@ -20,3 +20,6 @@ ltram_migrate_stress: ltram_migrate_stress.c
 
 ltram_scan_test: ltram_scan_test.c
 	$(CC) $(CFLAGS) ltram_scan_test.c -o ltram_scan_test
+
+redis_dirty_probe: redis_dirty_probe.c
+	$(CC) $(CFLAGS) redis_dirty_probe.c -o redis_dirty_probe
