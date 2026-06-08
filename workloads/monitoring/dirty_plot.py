@@ -28,6 +28,8 @@ from _phase_data import load_pages, parse_args_phase
 TOP_DIR = Path(__file__).parents[2]
 RESULTS_DIR = TOP_DIR / "results"
 
+RATE_WINDOW_S = 8   # express write rate as writes per RATE_WINDOW_S seconds
+
 workload, run_name, phase = parse_args_phase(sys.argv)
 out_dir = RESULTS_DIR / "runs" / run_name
 
@@ -36,7 +38,7 @@ total_sweeps    = df_all.attrs["total_sweeps"]
 total_seconds   = df_all.attrs["total_seconds"]
 interval_ms     = df_all.attrs["interval_ms"]
 phase_label     = df_all.attrs["label"]
-saturation_rate = 1000.0 / interval_ms
+saturation_rate = RATE_WINDOW_S * 1000.0 / interval_ms   # max writes per RATE_WINDOW_S
 
 # Four-class classification, using max_stab_period (longest quiet window) per page.
 # This correctly distinguishes "written in a long burst then idle" (Class 2)
@@ -76,7 +78,7 @@ else:
     df_all.loc[df_all["writable"] & (df_all["dirty_count"] > int(0.05 * total_sweeps)), "tier"] = "4"
 
 df = df_all.copy()
-df["dirty_rate"] = df["dirty_count"] / total_seconds      # writes/sec
+df["dirty_rate"] = df["dirty_count"] / total_seconds * RATE_WINDOW_S   # writes per RATE_WINDOW_S
 df["dirty_fraction"] = df["dirty_count"] / total_sweeps   # 0..1
 
 n_pages = len(df)
@@ -132,17 +134,17 @@ if len(df_t1) > 0:
 # ---------------------------------------------------------------------------
 # Plot A: Per-page write-rate histogram (phase-aware)
 # ---------------------------------------------------------------------------
-# X = write rate (writes/sec). Each bar = one discrete sweep count (0..N).
-# Bar width = 1/total_seconds because adjacent counts differ by one sweep.
+# X = write rate (writes per RATE_WINDOW_S). Each bar = one discrete sweep count (0..N).
+# Bar width = RATE_WINDOW_S/total_seconds because adjacent counts differ by one sweep.
 counts = df["dirty_count"].value_counts().sort_index()
-rates  = counts.index.values / total_seconds
-bar_width = 1.0 / total_seconds
+rates  = counts.index.values / total_seconds * RATE_WINDOW_S
+bar_width = RATE_WINDOW_S / total_seconds
 
 fig, ax = plt.subplots(figsize=(11, 6))
 ax.bar(rates, counts.values,
        width=bar_width, color="#0072B2", edgecolor="black", linewidth=0.2)
 ax.set_yscale("log")
-ax.set_xlabel("write rate (writes/sec)")
+ax.set_xlabel(f"promotion rate (writes per {RATE_WINDOW_S}s)")
 ax.set_ylabel("number of pages (log)")
 ax.set_title(
     f"{workload} — write-rate distribution, {phase_label}\n"
@@ -153,7 +155,7 @@ ax.set_xlim(-saturation_rate * 0.02, saturation_rate * 1.05)
 ax.grid(True, which="both", axis="y", alpha=0.3)
 ax.annotate(
     f"never-written\n{n_zero} pages ({100*n_zero/n_pages:.1f}%)",
-    xy=(0, n_zero), xytext=(saturation_rate * 0.15, n_zero),
+    xy=(0, n_zero), xytext=(saturation_rate * 0.12, n_zero),
     fontsize=10, ha="left", va="center",
     arrowprops=dict(arrowstyle="->", color="gray"),
 )
@@ -181,7 +183,7 @@ default_threshold = 0.0
 ax.axhspan(0, read_only_frac, xmin=0, xmax=default_threshold/saturation_rate
            if default_threshold > 0 else 0.005,
            color="#56B4E9", alpha=0.18,
-           label=f"LtRAM-eligible at threshold={default_threshold:g}/s "
+           label=f"LtRAM-eligible at threshold={default_threshold:g} per {RATE_WINDOW_S}s "
                  f"({100*read_only_frac:.1f}%)")
 
 # Mark the read-only fraction (the big jump at x=0)
@@ -191,7 +193,7 @@ ax.text(saturation_rate * 0.5, read_only_frac + 0.015,
         f"({n_zero} of {n_pages} pages)",
         fontsize=10, ha="center", va="bottom")
 
-ax.set_xlabel("write rate (writes/sec)")
+ax.set_xlabel(f"promotion rate (writes per {RATE_WINDOW_S}s)")
 ax.set_ylabel("cumulative fraction of pages with rate ≤ x")
 ax.set_title(
     f"{workload} — write-rate CDF (all readable pages)\n"
