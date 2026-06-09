@@ -61,7 +61,7 @@ mkdir -p $RESULTS
 #
 # Override with env vars: LTRAM_CONFIG (default "configA"),
 # LTRAM_RUN (default "<timestamp>_<workload>_<config>").
-CONFIG_TAG=${LTRAM_CONFIG:-configA}
+CONFIG_TAG=${LTRAM_CONFIG:-$(_make_config_tag "$MODE")}
 # Histogram mode (LTRAM_HIST=1): also runs dirty_sweep alongside the workload
 # to capture per-page write counts. Use scripts/run-vm-hist.sh as a shorthand.
 LTRAM_HIST=${LTRAM_HIST:-0}
@@ -80,6 +80,56 @@ LTRAM_DUCKDB_RECORDS=${LTRAM_DUCKDB_RECORDS:-}              # blank = bench defa
 LTRAM_DUCKDB_OPS=${LTRAM_DUCKDB_OPS:-}                      # blank = bench default (100000)
 LTRAM_DUCKDB_READ_RATIO=${LTRAM_DUCKDB_READ_RATIO:-}        # blank = bench default (0.5)
 LTRAM_DUCKDB_DIST=${LTRAM_DUCKDB_DIST:-}
+LTRAM_DUCKDB_TPCH=${LTRAM_DUCKDB_TPCH:-0}                   # 1 = TPC-H mode instead of YCSB
+LTRAM_DUCKDB_TPCH_SF=${LTRAM_DUCKDB_TPCH_SF:-}              # blank = bench default (1.0)
+LTRAM_DUCKDB_TPCH_QUERY=${LTRAM_DUCKDB_TPCH_QUERY:-}        # blank = all 22 queries
+# Guest memory sizes (MB). Total must fit in host RAM.
+LTRAM_MEM_DRAM_MB=${LTRAM_MEM_DRAM_MB:-7936}                # guest node 0 (DRAM tier)
+LTRAM_MEM_LTRAM_MB=${LTRAM_MEM_LTRAM_MB:-256}               # guest node 1 (LtRAM tier)
+
+# === Config tag auto-generation ===
+# When LTRAM_CONFIG is not set, build a tag from the actual run parameters so
+# run directories are self-describing. LTRAM_CONFIG still overrides everything.
+_fmt_num() {
+    # Compact number: 1000000→1M, 100000→100k, etc. Blank/non-numeric→"dflt".
+    local n=$1
+    [ -z "$n" ] && { echo "dflt"; return; }
+    if [ "$n" -ge 1000000 ] 2>/dev/null; then echo "$((n / 1000000))M"
+    elif [ "$n" -ge 1000 ] 2>/dev/null; then echo "$((n / 1000))k"
+    else echo "$n"
+    fi
+}
+_make_config_tag() {
+    local workload=$1
+    local mem="d${LTRAM_MEM_DRAM_MB}m-l${LTRAM_MEM_LTRAM_MB}m"
+    local wl
+    case "$workload" in
+        duckdb)
+            if [ "${LTRAM_DUCKDB_TPCH:-0}" = "1" ]; then
+                local sf="${LTRAM_DUCKDB_TPCH_SF:-1}"
+                local q="${LTRAM_DUCKDB_TPCH_QUERY:-all}"
+                [ -z "$LTRAM_DUCKDB_TPCH_QUERY" ] && q="all"
+                local n; n=$(_fmt_num "${LTRAM_DUCKDB_OPS:-10}")
+                wl="tpch-sf${sf}-q${q}-n${n}"
+            else
+                local r; r=$(_fmt_num "${LTRAM_DUCKDB_RECORDS:-1000000}")
+                local n; n=$(_fmt_num "${LTRAM_DUCKDB_OPS:-100000}")
+                local rr="${LTRAM_DUCKDB_READ_RATIO:-1.0}"
+                local dist="${LTRAM_DUCKDB_DIST:-uniform}"
+                wl="ycsb-r${r}-n${n}-R${rr}-${dist}"
+            fi ;;
+        redis)
+            local spec="${LTRAM_REDIS_SPEC:-workloadmini.spec}"
+            wl="${spec%.spec}" ;;
+        matmul)
+            wl="i$(_fmt_num "${LTRAM_MATMUL_ITERS:-10}")" ;;
+        gapbs)
+            wl="g${LTRAM_GAPBS_GRAPH:-20}-t$(_fmt_num "${LTRAM_GAPBS_TRIALS:-dflt}")" ;;
+        *)  wl="dflt" ;;
+    esac
+    echo "${mem}-${wl}"
+}
+
 # One run dir per day per (workload, config), nested under the date so each
 # day groups its workloads together:
 #   results/runs/2026-05-07/redis_short_hist/
@@ -117,17 +167,17 @@ $NUMACTL qemu-system-x86_64 \
   -enable-kvm \
   -cpu host \
   -smp 4 \
-  -m 8G \
+  -m $((LTRAM_MEM_DRAM_MB + LTRAM_MEM_LTRAM_MB))M \
   \
-  -object memory-backend-ram,id=m0,size=7936M${M0_HOST_OPTS} \
-  -object memory-backend-ram,id=m1,size=256M${M1_HOST_OPTS} \
+  -object memory-backend-ram,id=m0,size=${LTRAM_MEM_DRAM_MB}M${M0_HOST_OPTS} \
+  -object memory-backend-ram,id=m1,size=${LTRAM_MEM_LTRAM_MB}M${M1_HOST_OPTS} \
   -numa node,nodeid=0,memdev=m0,cpus=0-3 \
   -numa node,nodeid=1,memdev=m1 \
   -numa dist,src=0,dst=1,val=20 \
   -numa dist,src=1,dst=0,val=20 \
   -kernel "$KERNEL" \
   -drive file="$ROOTFS",format=raw,if=virtio \
-  -append "root=/dev/vda rw console=ttyS0 nokaslr numa=on ltram_workload=$WORKLOAD interactive=$INTERACTIVE ltram_run=$RUN_NAME ltram_hist=$LTRAM_HIST ltram_sweep_interval_ms=$LTRAM_SWEEP_INTERVAL_MS ltram_redis_spec=$LTRAM_REDIS_SPEC ltram_matmul_iters=$LTRAM_MATMUL_ITERS ltram_gapbs_graph=$LTRAM_GAPBS_GRAPH ltram_gapbs_trials=$LTRAM_GAPBS_TRIALS ltram_gapbs_iters=$LTRAM_GAPBS_ITERS ltram_gapbs_load_secs=$LTRAM_GAPBS_LOAD_SECS ltram_duckdb_records=$LTRAM_DUCKDB_RECORDS ltram_duckdb_ops=$LTRAM_DUCKDB_OPS ltram_duckdb_read_ratio=$LTRAM_DUCKDB_READ_RATIO ltram_duckdb_dist=$LTRAM_DUCKDB_DIST" \
+  -append "root=/dev/vda rw console=ttyS0 nokaslr numa=on ltram_workload=$WORKLOAD interactive=$INTERACTIVE ltram_run=$RUN_NAME ltram_hist=$LTRAM_HIST ltram_sweep_interval_ms=$LTRAM_SWEEP_INTERVAL_MS ltram_redis_spec=$LTRAM_REDIS_SPEC ltram_matmul_iters=$LTRAM_MATMUL_ITERS ltram_gapbs_graph=$LTRAM_GAPBS_GRAPH ltram_gapbs_trials=$LTRAM_GAPBS_TRIALS ltram_gapbs_iters=$LTRAM_GAPBS_ITERS ltram_gapbs_load_secs=$LTRAM_GAPBS_LOAD_SECS ltram_duckdb_records=$LTRAM_DUCKDB_RECORDS ltram_duckdb_ops=$LTRAM_DUCKDB_OPS ltram_duckdb_read_ratio=$LTRAM_DUCKDB_READ_RATIO ltram_duckdb_dist=$LTRAM_DUCKDB_DIST ltram_duckdb_tpch=$LTRAM_DUCKDB_TPCH ltram_duckdb_tpch_sf=$LTRAM_DUCKDB_TPCH_SF ltram_duckdb_tpch_query=$LTRAM_DUCKDB_TPCH_QUERY" \
   \
   -virtfs local,path="$WORKLOADS",mount_tag=workloads,security_model=passthrough \
   -virtfs local,path="$RESULTS",mount_tag=results,security_model=none \

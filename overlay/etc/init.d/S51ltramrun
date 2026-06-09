@@ -208,29 +208,45 @@ gapbs_pagerank() {
 }
 
 duckdb() {
-    local records=$(grep -o 'ltram_duckdb_records=[^ ]*' /proc/cmdline | cut -d= -f2)
-    local ops=$(grep -o 'ltram_duckdb_ops=[^ ]*' /proc/cmdline | cut -d= -f2)
-    local read_ratio=$(grep -o 'ltram_duckdb_read_ratio=[^ ]*' /proc/cmdline | cut -d= -f2)
-    local dist=$(grep -o 'ltram_duckdb_dist=[^ ]*' /proc/cmdline | cut -d= -f2)
-    records=${records:-100000}
-    ops=${ops:-10000}
-    read_ratio=${read_ratio:-0.5}
-    dist=${dist:-uniform}
+    local tpch=$(grep -o 'ltram_duckdb_tpch=[^ ]*' /proc/cmdline | cut -d= -f2)
+    tpch=${tpch:-0}
 
     local marker=/tmp/ltram_duckdb_load_done
     rm -f "$marker"
-    local timeout_ds=3000
+    local timeout_ds=6000   # 10 min — TPC-H dbgen at large SF can be slow
 
-    echo "Starting DuckDB benchmark (records=$records ops=$ops read_ratio=$read_ratio dist=$dist)..."
+    local bench_args=""
+
+    if [ "$tpch" = "1" ]; then
+        local sf=$(grep -o 'ltram_duckdb_tpch_sf=[^ ]*' /proc/cmdline | cut -d= -f2)
+        local query=$(grep -o 'ltram_duckdb_tpch_query=[^ ]*' /proc/cmdline | cut -d= -f2)
+        local ops=$(grep -o 'ltram_duckdb_ops=[^ ]*' /proc/cmdline | cut -d= -f2)
+        bench_args="-T"
+        [ -n "$sf" ]    && bench_args="$bench_args -f $sf"
+        [ -n "$query" ] && bench_args="$bench_args -q $query"
+        [ -n "$ops" ]   && bench_args="$bench_args -n $ops"
+        echo "Starting DuckDB TPC-H benchmark (sf=${sf:-1.0} query=${query:-all} rounds=${ops:-10})..."
+    else
+        local records=$(grep -o 'ltram_duckdb_records=[^ ]*' /proc/cmdline | cut -d= -f2)
+        local ops=$(grep -o 'ltram_duckdb_ops=[^ ]*' /proc/cmdline | cut -d= -f2)
+        local read_ratio=$(grep -o 'ltram_duckdb_read_ratio=[^ ]*' /proc/cmdline | cut -d= -f2)
+        local dist=$(grep -o 'ltram_duckdb_dist=[^ ]*' /proc/cmdline | cut -d= -f2)
+        records=${records:-1000000}
+        ops=${ops:-100000}
+        read_ratio=${read_ratio:-1.0}
+        dist=${dist:-uniform}
+        bench_args="-r $records -n $ops -R $read_ratio -D $dist"
+        echo "Starting DuckDB YCSB benchmark (records=$records ops=$ops read_ratio=$read_ratio dist=$dist)..."
+    fi
+
     LTRAM_DUCKDB_LOAD_DONE_MARKER="$marker" \
         numactl --cpunodebind=0 --membind=0 \
-        /mnt/workloads/duckdb/bench \
-            -r "$records" -n "$ops" -R "$read_ratio" -D "$dist" \
+        /mnt/workloads/duckdb/bench $bench_args \
         > "$RUN_DIR/workload-stdout.txt" 2>&1 &
     local pid=$!
     sleep 0.5
 
-    # === LOAD phase: bulk insert ===
+    # === LOAD phase: bulk insert (YCSB) or dbgen (TPC-H) ===
     start_dirty_sweep "$pid" "dirty_sweep_load"
     local waited=0
     while [ ! -f "$marker" ]; do
@@ -254,7 +270,7 @@ duckdb() {
         return 0
     fi
 
-    # === RUN phase: mixed reads and writes ===
+    # === RUN phase: queries ===
     start_dirty_sweep "$pid" "dirty_sweep"
     wait "$pid"
     stop_dirty_sweep

@@ -1,7 +1,7 @@
 /*
- * YCSB-style DuckDB benchmark.
- * Usage: bench [OPTIONS]
- *   -d PATH       database file path (default: /tmp/bench.db)
+ * DuckDB benchmark (in-memory only).
+ *
+ * YCSB mode (default):
  *   -r N          record count for load phase (default: 100000)
  *   -n N          operation count for run phase (default: 100000)
  *   -R RATIO      read ratio 0.0-1.0 (default: 0.5)
@@ -9,6 +9,12 @@
  *   -F BYTES      value field size in bytes (default: 100)
  *   -s N          random seed (default: 42)
  *   -S            skip load phase (table must already exist)
+ *
+ * TPC-H mode (-T):
+ *   -T            run TPC-H instead of YCSB
+ *   -f FLOAT      scale factor (default: 1.0)
+ *   -q N          run only query N 1-22 (default: 0 = all)
+ *   -n N          rounds through the query suite (default: 10)
  */
 
 #include "duckdb.h"
@@ -23,6 +29,15 @@
 #include <ctime>
 #include <string>
 #include <vector>
+
+// ---- helpers --------------------------------------------------------------
+
+static void write_marker(const char *env_var) {
+    const char *path = getenv(env_var);
+    if (!path) return;
+    FILE *f = fopen(path, "w");
+    if (f) fclose(f);
+}
 
 // ---- timing ---------------------------------------------------------------
 
@@ -123,6 +138,88 @@ static void print_stats(const char *label,
            percentile(lats, 0.99) / 1000.0);
 }
 
+// ---- TPC-H ----------------------------------------------------------------
+
+static void phase_tpch_load(duckdb_connection con, double sf) {
+    duckdb_result res;
+
+    // INSTALL may fail if already cached or offline; ignore the error
+    duckdb_query(con, "INSTALL tpch", &res);
+    duckdb_destroy_result(&res);
+
+    if (duckdb_query(con, "LOAD tpch", &res) == DuckDBError) {
+        fprintf(stderr, "LOAD tpch: %s\n", duckdb_result_error(&res));
+        duckdb_destroy_result(&res);
+        exit(1);
+    }
+    duckdb_destroy_result(&res);
+
+    char sql[64];
+    snprintf(sql, sizeof(sql), "CALL dbgen(sf=%.6g)", sf);
+    if (duckdb_query(con, sql, &res) == DuckDBError) {
+        fprintf(stderr, "dbgen: %s\n", duckdb_result_error(&res));
+        duckdb_destroy_result(&res);
+        exit(1);
+    }
+    duckdb_destroy_result(&res);
+
+    printf("[tpch] generated TPC-H data at scale factor %.4g\n", sf);
+    write_marker("LTRAM_DUCKDB_LOAD_DONE_MARKER");
+}
+
+static void phase_tpch_run(duckdb_connection con, int query_filter, int64_t rounds) {
+    int qstart = query_filter ? query_filter : 1;
+    int qend   = query_filter ? query_filter : 22;
+
+    // index 1-22; slot 0 unused
+    std::vector<uint64_t> lats[23];
+
+    uint64_t run_start = now_ns();
+
+    for (int64_t r = 0; r < rounds; r++) {
+        for (int q = qstart; q <= qend; q++) {
+            char sql[32];
+            snprintf(sql, sizeof(sql), "PRAGMA tpch(%d)", q);
+            duckdb_result res;
+            uint64_t t0 = now_ns();
+            if (duckdb_query(con, sql, &res) == DuckDBError) {
+                fprintf(stderr, "Q%02d: %s\n", q, duckdb_result_error(&res));
+                duckdb_destroy_result(&res);
+                continue;
+            }
+            lats[q].push_back(now_ns() - t0);
+            duckdb_destroy_result(&res);
+        }
+    }
+
+    double elapsed = (double)(now_ns() - run_start) / 1e9;
+
+    size_t total = 0;
+    for (int q = qstart; q <= qend; q++) {
+        if (lats[q].empty()) {
+            printf("[Q%02d ] skipped\n", q);
+            continue;
+        }
+        std::sort(lats[q].begin(), lats[q].end());
+        total += lats[q].size();
+
+        double avg_ms = 0;
+        for (auto x : lats[q]) avg_ms += (double)x;
+        avg_ms /= (double)lats[q].size() * 1e6;
+
+        auto pct_ms = [&](double p) -> double {
+            size_t idx = (size_t)(p * (lats[q].size() - 1));
+            return (double)lats[q][idx] / 1e6;
+        };
+
+        printf("[Q%02d ] runs=%-4zu  avg=%8.1fms  p50=%8.1fms  p95=%8.1fms  p99=%8.1fms\n",
+               q, lats[q].size(), avg_ms,
+               pct_ms(0.50), pct_ms(0.95), pct_ms(0.99));
+    }
+    printf("[tpch] total=%zu queries  elapsed=%.2fs  tput=%.3f q/s\n",
+           total, elapsed, (double)total / elapsed);
+}
+
 // ---- load phase -----------------------------------------------------------
 
 static void phase_load(duckdb_connection con, int64_t record_count,
@@ -167,6 +264,7 @@ static void phase_load(duckdb_connection con, int64_t record_count,
     duckdb_appender_destroy(&app);
 
     printf("[load] inserted %ld records\n", (long)record_count);
+    write_marker("LTRAM_DUCKDB_LOAD_DONE_MARKER");
 }
 
 // ---- run phase ------------------------------------------------------------
@@ -241,51 +339,50 @@ static void phase_run(duckdb_connection con,
 // ---- main -----------------------------------------------------------------
 
 int main(int argc, char *argv[]) {
-    const char *db_path  = "/tmp/bench.db";
-    int64_t record_count = 100000;
-    int64_t operations   = 100000;
-    double  read_ratio   = 0.5;
-    bool    use_zipfian  = false;
-    bool    skip_load    = false;
-    int     field_size   = 100;
-    uint64_t seed        = 42;
+    // YCSB options
+    int64_t  record_count = 100000;
+    int64_t  operations   = -1;  // resolved below after mode is known
+    double   read_ratio   = 0.5;
+    bool     use_zipfian  = false;
+    bool     skip_load    = false;
+    int      field_size   = 100;
+    uint64_t seed         = 42;
+
+    // TPC-H options
+    bool   tpch_mode         = false;
+    double tpch_sf           = 1.0;
+    int    tpch_query_filter = 0;   // 0 = all queries
 
     int opt;
-    while ((opt = getopt(argc, argv, "d:r:n:R:D:F:s:S")) != -1) {
+    while ((opt = getopt(argc, argv, "r:n:R:D:F:s:STf:q:")) != -1) {
         switch (opt) {
-        case 'd': db_path      = optarg;                         break;
-        case 'r': record_count = atoll(optarg);                  break;
-        case 'n': operations   = atoll(optarg);                  break;
-        case 'R': read_ratio   = atof(optarg);                   break;
-        case 'D': use_zipfian  = strcmp(optarg, "zipfian") == 0; break;
-        case 'F': field_size   = atoi(optarg);                   break;
-        case 's': seed         = (uint64_t)atoll(optarg);        break;
-        case 'S': skip_load    = true;                           break;
+        case 'r': record_count      = atoll(optarg);                  break;
+        case 'n': operations        = atoll(optarg);                  break;
+        case 'R': read_ratio        = atof(optarg);                   break;
+        case 'D': use_zipfian       = strcmp(optarg, "zipfian") == 0; break;
+        case 'F': field_size        = atoi(optarg);                   break;
+        case 's': seed              = (uint64_t)atoll(optarg);        break;
+        case 'S': skip_load         = true;                           break;
+        case 'T': tpch_mode         = true;                           break;
+        case 'f': tpch_sf           = atof(optarg);                   break;
+        case 'q': tpch_query_filter = atoi(optarg);                   break;
         default:
             fprintf(stderr,
-                "Usage: %s [-d PATH] [-r RECORDS] [-n OPS] [-R READ_RATIO]\n"
-                "          [-D uniform|zipfian] [-F FIELD_BYTES] [-s SEED] [-S]\n",
-                argv[0]);
+                "Usage: %s [-r RECORDS] [-n OPS] [-R READ_RATIO]\n"
+                "          [-D uniform|zipfian] [-F FIELD_BYTES] [-s SEED] [-S]\n"
+                "       %s -T [-f SCALE_FACTOR] [-q QUERY_NUM] [-n ROUNDS]\n",
+                argv[0], argv[0]);
             return 1;
         }
     }
 
-    rng_state = seed ? seed : 1;
-
-    printf("DuckDB YCSB-style benchmark\n");
-    printf("  db:           %s\n", db_path);
-    printf("  record-count: %ld\n", (long)record_count);
-    printf("  operations:   %ld\n", (long)operations);
-    printf("  read-ratio:   %.2f (read=%.0f%%  write=%.0f%%)\n",
-           read_ratio, read_ratio * 100, (1.0 - read_ratio) * 100);
-    printf("  distribution: %s\n", use_zipfian ? "zipfian" : "uniform");
-    printf("  field-size:   %d bytes\n", field_size);
-    printf("\n");
+    if (operations == -1)
+        operations = tpch_mode ? 10 : 100000;
 
     duckdb_database db;
     duckdb_connection con;
 
-    if (duckdb_open(db_path, &db) == DuckDBError) {
+    if (duckdb_open(":memory:", &db) == DuckDBError) {
         fprintf(stderr, "duckdb_open failed\n");
         return 1;
     }
@@ -294,19 +391,41 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    if (!skip_load) {
+    if (tpch_mode) {
+        printf("DuckDB TPC-H benchmark (in-memory)\n");
+        printf("  scale-factor: %.4g\n", tpch_sf);
+        if (tpch_query_filter)
+            printf("  query:        Q%02d\n", tpch_query_filter);
+        else
+            printf("  query:        all\n");
+        printf("  rounds:       %ld\n", (long)operations);
+        printf("\n");
+
         uint64_t t0 = now_ns();
-        phase_load(con, record_count, field_size);
-        printf("[load] elapsed %.2fs\n\n", (double)(now_ns() - t0) / 1e9);
+        phase_tpch_load(con, tpch_sf);
+        printf("[tpch] load elapsed %.2fs\n\n", (double)(now_ns() - t0) / 1e9);
 
-        const char *marker = getenv("LTRAM_DUCKDB_LOAD_DONE_MARKER");
-        if (marker) {
-            FILE *f = fopen(marker, "w");
-            if (f) fclose(f);
+        phase_tpch_run(con, tpch_query_filter, operations);
+    } else {
+        rng_state = seed ? seed : 1;
+
+        printf("DuckDB YCSB-style benchmark (in-memory)\n");
+        printf("  record-count: %ld\n", (long)record_count);
+        printf("  operations:   %ld\n", (long)operations);
+        printf("  read-ratio:   %.2f (read=%.0f%%  write=%.0f%%)\n",
+               read_ratio, read_ratio * 100, (1.0 - read_ratio) * 100);
+        printf("  distribution: %s\n", use_zipfian ? "zipfian" : "uniform");
+        printf("  field-size:   %d bytes\n", field_size);
+        printf("\n");
+
+        if (!skip_load) {
+            uint64_t t0 = now_ns();
+            phase_load(con, record_count, field_size);
+            printf("[load] elapsed %.2fs\n\n", (double)(now_ns() - t0) / 1e9);
         }
-    }
 
-    phase_run(con, operations, read_ratio, record_count, use_zipfian, field_size);
+        phase_run(con, operations, read_ratio, record_count, use_zipfian, field_size);
+    }
 
     duckdb_disconnect(&con);
     duckdb_close(&db);
