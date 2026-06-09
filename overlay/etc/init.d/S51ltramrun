@@ -157,7 +157,6 @@ gapbs_pagerank() {
     local g=$(grep -o 'ltram_gapbs_graph=[^ ]*'  /proc/cmdline | cut -d= -f2)
     local n=$(grep -o 'ltram_gapbs_trials=[^ ]*' /proc/cmdline | cut -d= -f2)
     local i=$(grep -o 'ltram_gapbs_iters=[^ ]*'  /proc/cmdline | cut -d= -f2)
-    g=${g:-20}
     local args="-g $g"
     [ -n "$n" ] && args="$args -n $n"
     [ -n "$i" ] && args="$args -i $i"
@@ -231,11 +230,8 @@ duckdb() {
         local ops=$(grep -o 'ltram_duckdb_ops=[^ ]*' /proc/cmdline | cut -d= -f2)
         local read_ratio=$(grep -o 'ltram_duckdb_read_ratio=[^ ]*' /proc/cmdline | cut -d= -f2)
         local dist=$(grep -o 'ltram_duckdb_dist=[^ ]*' /proc/cmdline | cut -d= -f2)
-        records=${records:-1000000}
-        ops=${ops:-100000}
-        read_ratio=${read_ratio:-1.0}
-        dist=${dist:-uniform}
-        bench_args="-r $records -n $ops -R $read_ratio -D $dist"
+        bench_args="-r $records -R $read_ratio -D $dist"
+        [ -n "$ops" ] && bench_args="$bench_args -n $ops"
         echo "Starting DuckDB YCSB benchmark (records=$records ops=$ops read_ratio=$read_ratio dist=$dist)..."
     fi
 

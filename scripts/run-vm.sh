@@ -61,27 +61,24 @@ mkdir -p $RESULTS
 #
 # Override with env vars: LTRAM_CONFIG (default "configA"),
 # LTRAM_RUN (default "<timestamp>_<workload>_<config>").
-CONFIG_TAG=${LTRAM_CONFIG:-$(_make_config_tag "$MODE")}
 # Histogram mode (LTRAM_HIST=1): also runs dirty_sweep alongside the workload
 # to capture per-page write counts. Use scripts/run-vm-hist.sh as a shorthand.
 LTRAM_HIST=${LTRAM_HIST:-0}
 LTRAM_NO_ANALYZE=${LTRAM_NO_ANALYZE:-0}
 LTRAM_SWEEP_INTERVAL_MS=${LTRAM_SWEEP_INTERVAL_MS:-100}
-# Workload duration overrides for longer / steady-state benchmarks. All have
-# safe defaults that match the original short-run behavior, so existing
-# scripts continue to work unchanged.
+# Workload parameters. All defaults live here; S51ltramrun reads them as-is.
 LTRAM_REDIS_SPEC=${LTRAM_REDIS_SPEC:-workloadmini.spec}    # alt: workloadlong.spec
 LTRAM_MATMUL_ITERS=${LTRAM_MATMUL_ITERS:-}                  # blank = compiled default (10)
 LTRAM_GAPBS_GRAPH=${LTRAM_GAPBS_GRAPH:-20}                  # 2^N Kronecker graph vertices
 LTRAM_GAPBS_TRIALS=${LTRAM_GAPBS_TRIALS:-}                  # blank = pr binary default
 LTRAM_GAPBS_ITERS=${LTRAM_GAPBS_ITERS:-}                    # blank = pr binary default
 LTRAM_GAPBS_LOAD_SECS=${LTRAM_GAPBS_LOAD_SECS:-}            # blank = guess from graph size
-LTRAM_DUCKDB_RECORDS=${LTRAM_DUCKDB_RECORDS:-}              # blank = bench default (100000)
-LTRAM_DUCKDB_OPS=${LTRAM_DUCKDB_OPS:-}                      # blank = bench default (100000)
-LTRAM_DUCKDB_READ_RATIO=${LTRAM_DUCKDB_READ_RATIO:-}        # blank = bench default (0.5)
-LTRAM_DUCKDB_DIST=${LTRAM_DUCKDB_DIST:-}
+LTRAM_DUCKDB_RECORDS=${LTRAM_DUCKDB_RECORDS:-1000000}        # 1M records (memory pressure)
+LTRAM_DUCKDB_OPS=${LTRAM_DUCKDB_OPS:-}                      # blank = bench default (100k YCSB / 10 TPC-H)
+LTRAM_DUCKDB_READ_RATIO=${LTRAM_DUCKDB_READ_RATIO:-1.0}     # read-only by default
+LTRAM_DUCKDB_DIST=${LTRAM_DUCKDB_DIST:-uniform}
 LTRAM_DUCKDB_TPCH=${LTRAM_DUCKDB_TPCH:-0}                   # 1 = TPC-H mode instead of YCSB
-LTRAM_DUCKDB_TPCH_SF=${LTRAM_DUCKDB_TPCH_SF:-}              # blank = bench default (1.0)
+LTRAM_DUCKDB_TPCH_SF=${LTRAM_DUCKDB_TPCH_SF:-1}             # scale factor
 LTRAM_DUCKDB_TPCH_QUERY=${LTRAM_DUCKDB_TPCH_QUERY:-}        # blank = all 22 queries
 # Guest memory sizes (MB). Total must fit in host RAM.
 LTRAM_MEM_DRAM_MB=${LTRAM_MEM_DRAM_MB:-7936}                # guest node 0 (DRAM tier)
@@ -129,6 +126,7 @@ _make_config_tag() {
     esac
     echo "${mem}-${wl}"
 }
+CONFIG_TAG=${LTRAM_CONFIG:-$(_make_config_tag "$MODE")}
 
 # One run dir per day per (workload, config), nested under the date so each
 # day groups its workloads together:
