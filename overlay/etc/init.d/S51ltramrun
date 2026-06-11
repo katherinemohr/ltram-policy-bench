@@ -157,6 +157,7 @@ gapbs_pagerank() {
     local g=$(grep -o 'ltram_gapbs_graph=[^ ]*'  /proc/cmdline | cut -d= -f2)
     local n=$(grep -o 'ltram_gapbs_trials=[^ ]*' /proc/cmdline | cut -d= -f2)
     local i=$(grep -o 'ltram_gapbs_iters=[^ ]*'  /proc/cmdline | cut -d= -f2)
+    g=${g:-20}
     local args="-g $g"
     [ -n "$n" ] && args="$args -n $n"
     [ -n "$i" ] && args="$args -i $i"
