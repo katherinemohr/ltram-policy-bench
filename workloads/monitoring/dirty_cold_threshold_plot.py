@@ -8,8 +8,8 @@ Two bars per threshold T:
   - "cold for T":       % of present pages with final_stab_period >= T seconds
                         (unwritten for at least T seconds at end of observation)
   - "cold + high churn": % of cold-for-T pages with write rate >= WRITE_RATE_THRESHOLD
-                        writes/sec (pages in a quiet window but actively written
-                        overall — risky LTRAM candidates)
+                        writes per RATE_WINDOW_S seconds (pages in a quiet window but actively written
+                        overall — risky LtRAM candidates)
 
 Thresholds T are configurable via COLD_THRESHOLDS_S below (seconds).
 T values exceeding the run length are skipped automatically.

@@ -313,13 +313,19 @@ static void phase_run(duckdb_connection con,
 
         if (rng_double() < read_ratio) {
             duckdb_bind_int32(read_stmt, 1, (int32_t)key);
-            duckdb_execute_prepared(read_stmt, &res);
-            read_lats.push_back(now_ns() - t0);
+            if (duckdb_execute_prepared(read_stmt, &res) == DuckDBSuccess) {
+                read_lats.push_back(now_ns() - t0);
+            } else {
+                fprintf(stderr, "read exec: %s\n", duckdb_result_error(&res));
+            }
         } else {
             duckdb_bind_int32(write_stmt, 1, (int32_t)key);
             duckdb_bind_varchar(write_stmt, 2, new_val.c_str());
-            duckdb_execute_prepared(write_stmt, &res);
-            write_lats.push_back(now_ns() - t0);
+            if (duckdb_execute_prepared(write_stmt, &res) == DuckDBSuccess) {
+                write_lats.push_back(now_ns() - t0);
+            } else {
+                fprintf(stderr, "write exec: %s\n", duckdb_result_error(&res));
+            }
         }
         duckdb_destroy_result(&res);
     }

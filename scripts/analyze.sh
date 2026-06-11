@@ -28,8 +28,12 @@ if [[ "$#" -lt 1 ]]; then
 fi
 
 WORKLOAD=$1
-CONFIG_TAG=${LTRAM_CONFIG:-configA}
-RUN_NAME=${2:-${LTRAM_RUN:-$(date +%Y-%m-%d)/${WORKLOAD}_${CONFIG_TAG}}}
+RUN_NAME=${2:-${LTRAM_RUN:-}}
+if [[ -z "$RUN_NAME" ]]; then
+    echo "Usage: $0 <workload> <run_name>  (or set LTRAM_RUN)"
+    echo "Error: run_name not provided and cannot be derived reliably because run directories may use auto-generated config tags."
+    exit 1
+fi
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 BASE_DIR="$(dirname "$SCRIPT_DIR")"

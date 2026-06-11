@@ -48,10 +48,12 @@ def categorize_vma(path):
         return "[stack]"
     if path in ("[vvar]", "[vdso]", "[vsyscall]"):
         return "kernel\nspecial"
+    if not path or isinstance(path, float):
+        return "anonymous\n(mmap)"
+    if path == "[anon]":
+        return "anonymous\n(mmap)"
     if path.startswith("["):
         return "other\nspecial"
-    if not path or (isinstance(path, float)):
-        return "anonymous\n(mmap)"
     if ".so" in path:
         return "shared lib\n(.so)"
     if path.startswith("/"):
