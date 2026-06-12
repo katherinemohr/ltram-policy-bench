@@ -1,5 +1,10 @@
 results/
 install/
+*.png
+*.log
+
+# pycache
+*.pyc
 
 # Default C Project .gitignore -----------
 # Object files

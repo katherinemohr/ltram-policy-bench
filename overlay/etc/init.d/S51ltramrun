@@ -18,6 +18,8 @@ detect_hist() {
         echo "Histogram mode: dirty_sweep will run alongside the workload."
         HIST=1
     fi
+    SWEEP_INTERVAL_MS=$(grep -o 'ltram_sweep_interval_ms=[^ ]*' /proc/cmdline | cut -d= -f2)
+    SWEEP_INTERVAL_MS=${SWEEP_INTERVAL_MS:-100}
 }
 
 resolve_run_dir() {
@@ -39,7 +41,7 @@ start_dirty_sweep() {
     local target_pid=$1
     local out_base=${2:-dirty_sweep}
     /mnt/workloads/monitoring/dirty_sweep "$target_pid" \
-        "$RUN_DIR/${out_base}.csv" 100 2> "$RUN_DIR/${out_base}.log" &
+        "$RUN_DIR/${out_base}.csv" "$SWEEP_INTERVAL_MS" 2> "$RUN_DIR/${out_base}.log" &
     SWEEP_PID=$!
     echo "[hist] dirty_sweep pid=$SWEEP_PID, target pid=$target_pid, "\
 "out=${out_base}.csv"
@@ -85,6 +87,7 @@ run_workload() {
         matmul) matmul ;;
         gapbs) gapbs_pagerank ;;
         redis) redis ;;
+        duckdb) duckdb ;;
         *) echo "Unknown workload: $1. Defaulting to matmul."; matmul ;;
     esac
 }
@@ -202,6 +205,73 @@ gapbs_pagerank() {
     wait "$pid"
     stop_dirty_sweep
     echo "PageRank complete (deterministic load/run split)."
+}
+
+duckdb() {
+    local tpch=$(grep -o 'ltram_duckdb_tpch=[^ ]*' /proc/cmdline | cut -d= -f2)
+    tpch=${tpch:-0}
+
+    local marker=/tmp/ltram_duckdb_load_done
+    rm -f "$marker"
+    local timeout_ds=6000   # 10 min — TPC-H dbgen at large SF can be slow
+
+    local bench_args=""
+
+    if [ "$tpch" = "1" ]; then
+        local sf=$(grep -o 'ltram_duckdb_tpch_sf=[^ ]*' /proc/cmdline | cut -d= -f2)
+        local query=$(grep -o 'ltram_duckdb_tpch_query=[^ ]*' /proc/cmdline | cut -d= -f2)
+        local ops=$(grep -o 'ltram_duckdb_ops=[^ ]*' /proc/cmdline | cut -d= -f2)
+        bench_args="-T"
+        [ -n "$sf" ]    && bench_args="$bench_args -f $sf"
+        [ -n "$query" ] && bench_args="$bench_args -q $query"
+        [ -n "$ops" ]   && bench_args="$bench_args -n $ops"
+        echo "Starting DuckDB TPC-H benchmark (sf=${sf:-1.0} query=${query:-all} rounds=${ops:-10})..."
+    else
+        local records=$(grep -o 'ltram_duckdb_records=[^ ]*' /proc/cmdline | cut -d= -f2)
+        local ops=$(grep -o 'ltram_duckdb_ops=[^ ]*' /proc/cmdline | cut -d= -f2)
+        local read_ratio=$(grep -o 'ltram_duckdb_read_ratio=[^ ]*' /proc/cmdline | cut -d= -f2)
+        local dist=$(grep -o 'ltram_duckdb_dist=[^ ]*' /proc/cmdline | cut -d= -f2)
+        bench_args="-r $records -R $read_ratio -D $dist"
+        [ -n "$ops" ] && bench_args="$bench_args -n $ops"
+        echo "Starting DuckDB YCSB benchmark (records=$records ops=$ops read_ratio=$read_ratio dist=$dist)..."
+    fi
+
+    LTRAM_DUCKDB_LOAD_DONE_MARKER="$marker" \
+        numactl --cpunodebind=0 --membind=0 \
+        /mnt/workloads/duckdb/bench $bench_args \
+        > "$RUN_DIR/workload-stdout.txt" 2>&1 &
+    local pid=$!
+    sleep 0.5
+
+    # === LOAD phase: bulk insert (YCSB) or dbgen (TPC-H) ===
+    start_dirty_sweep "$pid" "dirty_sweep_load"
+    local waited=0
+    while [ ! -f "$marker" ]; do
+        if ! kill -0 "$pid" 2>/dev/null; then
+            echo "[duckdb] process exited before marker — single CSV (load only)"
+            stop_dirty_sweep
+            return 0
+        fi
+        if [ $waited -ge $timeout_ds ]; then
+            echo "[duckdb] WARNING: load marker not seen in $((timeout_ds/10))s — proceeding anyway"
+            break
+        fi
+        sleep 0.1
+        waited=$((waited + 1))
+    done
+    stop_dirty_sweep
+    echo "[duckdb] LOAD phase complete after ~$((waited / 10))s"
+
+    if ! kill -0 "$pid" 2>/dev/null; then
+        echo "[duckdb] process exited at load→run boundary — only load CSV"
+        return 0
+    fi
+
+    # === RUN phase: queries ===
+    start_dirty_sweep "$pid" "dirty_sweep"
+    wait "$pid"
+    stop_dirty_sweep
+    echo "DuckDB benchmark complete."
 }
 
 redis() {
