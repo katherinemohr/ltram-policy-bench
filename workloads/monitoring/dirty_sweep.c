@@ -40,6 +40,23 @@ static void on_signal(int sig) { (void)sig; stop_requested = 1; }
 #define BIT_SOFT_DIRTY  (1ULL << 55)
 #define MAX_VMAS        4096
 
+// Per-page "incarnation" state, tracked IN PARALLEL with the legacy
+// accumulators below. An incarnation is a maximal contiguous run of sweeps in
+// which the page is present; a present->absent->present gap starts a new one
+// (see C02 in the GRILL). This is what dirty_lifecycle_plot.py / the
+// eligibility plot consume; the legacy fields keep dirty_sweep.csv unchanged.
+struct page_inc {
+    int  open;               // is an incarnation currently open for this page?
+    int  count;              // how many incarnations opened so far (idx = count-1)
+    int  first_seen;         // sweep this incarnation first became present
+    int  last_present;       // most recent sweep present (becomes last_seen)
+    int  present_count;      // sweeps present within this incarnation
+    int  dirty_count;        // sweeps dirty within this incarnation
+    int *write_events;       // sweep numbers written, within this incarnation
+    int  write_event_count;
+    int  write_event_cap;
+};
+
 struct vma {
     uint64_t start, end;
     char perms[8];
@@ -55,6 +72,9 @@ struct vma {
     int **write_events;
     int  *write_event_count;
     int  *write_event_cap;
+    // Per-page incarnation state (parallel to the above; feeds the lifecycle
+    // sidecar CSV). One struct per page, (re)allocated alongside n_pages.
+    struct page_inc *inc;
 };
 
 // Current sweep number, set just before each call to sweep_pagemap so the
@@ -92,6 +112,76 @@ static void log_stability_period(int len, int is_final) {
     }
     stability_hist[len]++;
     if (is_final) stability_hist_final[len]++;
+}
+
+// === Incarnation records (lifecycle sidecar) ============================
+// Completed incarnations are buffered here and flushed to
+// dirty_sweep_lifecycle.csv at end of run. We keep only an index back into
+// `vmas` (resolved to start/end/perms/path at write time) so the row's
+// vma_perms matches the final perms — same convention dirty_sweep.csv uses.
+struct incarnation_rec {
+    int vma_idx;
+    int vpage_idx;
+    int incarnation_idx;
+    int first_seen;
+    int last_seen;
+    int present_count;
+    int dirty_count;
+    int *write_events;       // owned copy
+    int write_event_count;
+};
+
+static struct incarnation_rec *inc_recs = NULL;
+static size_t inc_recs_count = 0;
+static size_t inc_recs_cap   = 0;
+
+static void append_event(int **list, int *count, int *cap, int sweep) {
+    if (*count >= *cap) {
+        int nc = *cap ? *cap * 2 : 4;
+        int *grown = realloc(*list, (size_t)nc * sizeof(int));
+        if (!grown) { fprintf(stderr, "realloc write_events failed\n"); exit(1); }
+        *list = grown;
+        *cap = nc;
+    }
+    (*list)[*count] = sweep;
+    (*count)++;
+}
+
+static void push_inc_rec(struct incarnation_rec r) {
+    if (inc_recs_count >= inc_recs_cap) {
+        size_t nc = inc_recs_cap ? inc_recs_cap * 2 : 1024;
+        struct incarnation_rec *grown = realloc(inc_recs, nc * sizeof(*inc_recs));
+        if (!grown) { fprintf(stderr, "realloc inc_recs failed\n"); exit(1); }
+        inc_recs = grown;
+        inc_recs_cap = nc;
+    }
+    inc_recs[inc_recs_count++] = r;
+}
+
+// Close the open incarnation for vmas[i].inc[p], emitting a completed record.
+// last_seen = the most recent present sweep (the gap or end-of-run boundary).
+static void close_incarnation(int i, int p) {
+    struct page_inc *pi = &vmas[i].inc[p];
+    if (!pi->open) return;
+    struct incarnation_rec r;
+    r.vma_idx         = i;
+    r.vpage_idx       = p;
+    r.incarnation_idx = pi->count - 1;
+    r.first_seen      = pi->first_seen;
+    r.last_seen       = pi->last_present;
+    r.present_count   = pi->present_count;
+    r.dirty_count     = pi->dirty_count;
+    r.write_event_count = pi->write_event_count;
+    if (pi->write_event_count > 0) {
+        r.write_events = malloc((size_t)pi->write_event_count * sizeof(int));
+        if (!r.write_events) { fprintf(stderr, "malloc rec write_events failed\n"); exit(1); }
+        memcpy(r.write_events, pi->write_events,
+               (size_t)pi->write_event_count * sizeof(int));
+    } else {
+        r.write_events = NULL;
+    }
+    push_inc_rec(r);
+    pi->open = 0;
 }
 
 // Idempotent maps refresh. Called every sweep so we catch new/grown VMAs as
@@ -144,7 +234,8 @@ static int merge_maps(int pid) {
                 int **we   = realloc(v->write_events,     new_pages * sizeof(int*));
                 int *wec   = realloc(v->write_event_count, new_pages * sizeof(int));
                 int *wecp  = realloc(v->write_event_cap,   new_pages * sizeof(int));
-                if (!p || !d || !s || !m || !we || !wec || !wecp) {
+                struct page_inc *pinc = realloc(v->inc, new_pages * sizeof(struct page_inc));
+                if (!p || !d || !s || !m || !we || !wec || !wecp || !pinc) {
                     fprintf(stderr, "realloc failed for VMA %lx\n", v->start);
                     fclose(f);
                     return -1;
@@ -156,6 +247,8 @@ static int merge_maps(int pid) {
                 memset(&we [v->n_pages], 0, (new_pages - v->n_pages) * sizeof(int*));
                 memset(&wec[v->n_pages], 0, (new_pages - v->n_pages) * sizeof(int));
                 memset(&wecp[v->n_pages],0, (new_pages - v->n_pages) * sizeof(int));
+                memset(&pinc[v->n_pages], 0,
+                       (new_pages - v->n_pages) * sizeof(struct page_inc));
                 v->present_count = p;
                 v->dirty_count   = d;
                 v->current_stab_period = s;
@@ -163,6 +256,7 @@ static int merge_maps(int pid) {
                 v->write_events = we;
                 v->write_event_count = wec;
                 v->write_event_cap   = wecp;
+                v->inc = pinc;
                 v->n_pages = new_pages;
                 v->end = end;
             }
@@ -192,9 +286,10 @@ static int merge_maps(int pid) {
             v->write_events     = calloc(v->n_pages, sizeof(int*));
             v->write_event_count = calloc(v->n_pages, sizeof(int));
             v->write_event_cap   = calloc(v->n_pages, sizeof(int));
+            v->inc               = calloc(v->n_pages, sizeof(struct page_inc));
             if (!v->present_count || !v->dirty_count || !v->current_stab_period ||
                 !v->max_stab_period || !v->write_events || !v->write_event_count ||
-                !v->write_event_cap) {
+                !v->write_event_cap || !v->inc) {
                 fprintf(stderr, "calloc failed for new VMA %lx (%d pages)\n",
                         v->start, v->n_pages);
                 fclose(f);
@@ -267,6 +362,29 @@ static void sweep_pagemap(int pagemap_fd) {
                         // Page was present and clean — extend stability period.
                         v->current_stab_period[p]++;
                     }
+
+                    // --- Incarnation tracking (parallel; see C02) ---
+                    // A present->absent->present gap (>1 sweep since last seen)
+                    // closes the current incarnation and opens a new one.
+                    struct page_inc *pi = &v->inc[p];
+                    int s = g_current_sweep;
+                    if (pi->open && (s - pi->last_present) > 1)
+                        close_incarnation(i, p);     // sets pi->open = 0
+                    if (!pi->open) {
+                        pi->open = 1;
+                        pi->count++;                 // idx of this incarnation = count-1
+                        pi->first_seen = s;
+                        pi->present_count = 0;
+                        pi->dirty_count = 0;
+                        pi->write_event_count = 0;
+                    }
+                    pi->present_count++;
+                    if (buf[j] & BIT_SOFT_DIRTY) {
+                        pi->dirty_count++;
+                        append_event(&pi->write_events, &pi->write_event_count,
+                                     &pi->write_event_cap, s);
+                    }
+                    pi->last_present = s;
                 }
                 // If !present this sweep: don't advance stability period, don't end it.
                 // Page may come back later; treat the absence as a hold.
@@ -413,6 +531,55 @@ int main(int argc, char **argv) {
         fprintf(stderr, "[dirty_sweep] stability-period histogram → %s\n", stability_path);
     } else {
         perror(stability_path);
+    }
+
+    // === Lifecycle sidecar: one row per page incarnation (C01) ===========
+    // Close every still-open incarnation on this post-loop path (NOT in the
+    // signal handler — that only sets stop_requested), then flush all records.
+    for (int i = 0; i < n_vmas; i++) {
+        struct vma *v = &vmas[i];
+        for (int j = 0; j < v->n_pages; j++) {
+            if (v->inc[j].open) close_incarnation(i, j);
+        }
+    }
+
+    char lifecycle_path[512];
+    {
+        const char *base = output;
+        size_t len = strlen(base);
+        const char *suf = ".csv";
+        size_t suflen = strlen(suf);
+        if (len >= suflen && strcmp(base + len - suflen, suf) == 0) {
+            snprintf(lifecycle_path, sizeof(lifecycle_path), "%.*s_lifecycle.csv",
+                     (int)(len - suflen), base);
+        } else {
+            snprintf(lifecycle_path, sizeof(lifecycle_path), "%s_lifecycle.csv", base);
+        }
+    }
+    FILE *lout = fopen(lifecycle_path, "w");
+    if (lout) {
+        fprintf(lout, "# total_sweeps=%d total_seconds=%.3f interval_ms=%d pid=%d\n",
+                total_sweeps, elapsed, interval_ms, pid);
+        fprintf(lout, "vma_start,vma_end,vma_perms,vma_path,vpage_idx,incarnation_idx,"
+                      "first_seen,last_seen,present_count,dirty_count,write_events\n");
+        for (size_t r = 0; r < inc_recs_count; r++) {
+            struct incarnation_rec *rec = &inc_recs[r];
+            if (rec->present_count == 0) continue;   // never present, skip (C01)
+            struct vma *v = &vmas[rec->vma_idx];
+            fprintf(lout, "0x%lx,0x%lx,%s,%s,%d,%d,%d,%d,%d,%d,",
+                    v->start, v->end, v->perms, v->path,
+                    rec->vpage_idx, rec->incarnation_idx,
+                    rec->first_seen, rec->last_seen,
+                    rec->present_count, rec->dirty_count);
+            for (int k = 0; k < rec->write_event_count; k++) {
+                fprintf(lout, "%s%d", k == 0 ? "" : ";", rec->write_events[k]);
+            }
+            fprintf(lout, "\n");
+        }
+        fclose(lout);
+        fprintf(stderr, "[dirty_sweep] lifecycle (per-incarnation) → %s\n", lifecycle_path);
+    } else {
+        perror(lifecycle_path);
     }
 
     fprintf(stderr, "[dirty_sweep] %d sweeps in %.2fs, wrote %s\n",
