@@ -2,7 +2,7 @@
 # Check if at least one argument is provided
 if [ "$#" -lt 1 ]; then
     echo "Usage: ./run-vm.sh [workload_name|interactive]"
-    echo "Available workloads: matmul, gapbs, redis, interactive"
+    echo "Available workloads: matmul, gapbs, redis, llama, interactive"
     exit 1
 fi
 

@@ -48,6 +48,7 @@ run_workload() {
         matmul) matmul ;;
         gapbs) gapbs_pagerank ;;
         redis) redis ;;
+        llama) llama ;;
         *) echo "Unknown workload: $1. Defaulting to matmul."; matmul ;;
     esac
 }
@@ -87,6 +88,13 @@ redis() {
 
     echo "Phase 2: Running operations..."
     /mnt/workloads/YCSB-C/ycsbc -db redis -P "$WORKLOAD_PATH" > /mnt/results/ycsb-run.txt 2>&1
+}
+
+llama() {
+    WORKLOAD_PATH="/mnt/workloads/llama/llama-bench"
+    MODEL_PATH="/mnt/inputs/qwen2.5-0.5b-instruct-q4_k_m.g"
+
+    numactl --cpunodebind=0 --membind=0 $WORKLOAD_PATH -m $MODEL_PATH 2>&1
 }
 
 end_run() {
