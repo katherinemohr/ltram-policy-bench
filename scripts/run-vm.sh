@@ -33,6 +33,17 @@ INPUTS="${BASE_DIR}/inputs"
 
 mkdir -p $RESULTS
 
+# === Fetch-if-missing: llama workload artifacts (FetchContent-style) ===
+# The llama-bench binary + .so closure (workloads/llama/) and the GGUF model
+# (inputs/*.gguf) are large external artifacts kept out of git. When the llama
+# workload is requested and they are absent, download+stage them on demand.
+if [ "$WORKLOAD" = "llama" ]; then
+    if [ ! -e "$WORKLOADS/llama/llama-bench" ] || ! ls "$INPUTS"/*.gguf >/dev/null 2>&1; then
+        echo "[run-vm] llama artifacts missing -- staging via scripts/stage-llama.sh"
+        "$SCRIPT_DIR/stage-llama.sh"
+    fi
+fi
+
 # === Host NUMA pinning ===
 # Active (Configuration A): pin everything to host node 0.
 # Both guest tiers (Node 0 = DRAM, Node 1 = LtRAM) are backed by the same
