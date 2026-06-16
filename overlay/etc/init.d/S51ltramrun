@@ -88,6 +88,7 @@ run_workload() {
         gapbs) gapbs_pagerank ;;
         redis) redis ;;
         duckdb) duckdb ;;
+        llama) llama ;;
         *) echo "Unknown workload: $1. Defaulting to matmul."; matmul ;;
     esac
 }
@@ -314,9 +315,20 @@ redis() {
     stop_dirty_sweep
 }
 
+llama() {
+    WORKLOAD_PATH="/mnt/workloads/llama/llama-bench"
+    MODEL_PATH="/mnt/inputs/qwen2.5-0.5b-instruct-q4_k_m.gguf"
+
+    numactl --cpunodebind=0 --membind=0 $WORKLOAD_PATH -m $MODEL_PATH 2>&1
+}
+
 end_run() {
     cp /proc/vmstat "$RUN_DIR/vmstat-after.txt"
 
+    # Snapshot the dmesgs to check for warnings
+    cp /var/log/messages /mnt/results/messages
+
+    # Per-node memory breakdown
     for node in 0 1; do
         cat /sys/devices/system/node/node${node}/meminfo \
             > "$RUN_DIR/node${node}-meminfo.txt"

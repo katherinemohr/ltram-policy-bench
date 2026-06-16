@@ -1,8 +1,13 @@
 #!/bin/bash
 # Check if at least one argument is provided
 if [ "$#" -lt 1 ]; then
+<<<<<<< HEAD
     echo "Usage: ./run-vm.sh [workload_name|interactive|all]"
     echo "Available workloads: matmul, gapbs, redis, duckdb, interactive, all"
+=======
+    echo "Usage: ./run-vm.sh [workload_name|interactive]"
+    echo "Available workloads: matmul, gapbs, redis, llama, interactive"
+>>>>>>> main
     exit 1
 fi
 
@@ -139,6 +144,13 @@ RUN_DIR="$RESULTS/runs/$RUN_NAME"
 mkdir -p "$RUN_DIR"
 echo "Run name: $RUN_NAME"
 echo "Run dir : $RUN_DIR"
+# download the llama-bench and *.gguf files if they aren't present on a llama run
+if [ "$WORKLOAD" = "llama" ]; then
+    if [ ! -e "$WORKLOADS/llama/llama-bench" ] || ! ls "$INPUTS"/*.gguf >/dev/null 2>&1; then
+        echo "[run-vm] llama artifacts missing -- staging via scripts/setup-llama.sh"
+        "$SCRIPT_DIR/setup-llama.sh"
+    fi
+fi
 
 # === Host NUMA pinning ===
 # Active (Configuration A): pin everything to host node 0.
