@@ -40,3 +40,8 @@ install/
 
 # Staging copy of profiling script (canonical lives in scripts/)
 workloads/profile_workload.sh
+
+# Staged llama-bench workload (binary + .so closure) and model -- large external
+# artifacts repopulated by scripts/stage-llama.sh, not committed.
+workloads/llama/
+inputs/*.gguf
