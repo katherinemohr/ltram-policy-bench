@@ -33,14 +33,11 @@ INPUTS="${BASE_DIR}/inputs"
 
 mkdir -p $RESULTS
 
-# === Fetch-if-missing: llama workload artifacts (FetchContent-style) ===
-# The llama-bench binary + .so closure (workloads/llama/) and the GGUF model
-# (inputs/*.gguf) are large external artifacts kept out of git. When the llama
-# workload is requested and they are absent, download+stage them on demand.
+# download the llama-bench and *.gguf files if they aren't present on a llama run
 if [ "$WORKLOAD" = "llama" ]; then
     if [ ! -e "$WORKLOADS/llama/llama-bench" ] || ! ls "$INPUTS"/*.gguf >/dev/null 2>&1; then
-        echo "[run-vm] llama artifacts missing -- staging via scripts/stage-llama.sh"
-        "$SCRIPT_DIR/stage-llama.sh"
+        echo "[run-vm] llama artifacts missing -- staging via scripts/setup-llama.sh"
+        "$SCRIPT_DIR/setup-llama.sh"
     fi
 fi
 

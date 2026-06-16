@@ -1,23 +1,24 @@
 #!/bin/bash
-# Stage the prebuilt llama.cpp llama-bench workload into the tree.
+# Setup the prebuilt llama.cpp llama-bench workload.
 #
-# FetchContent-style: the binary + .so closure are NOT committed (they are
-# large external build artifacts -- see .gitignore: workloads/llama/,
-# inputs/*.gguf). This script downloads the prebuilt llama.cpp release from
-# GitHub and the GGUF model from HuggingFace, caches them under .cache/, and
-# stages them into the tree. run-vm.sh calls it automatically when the llama
-# workload is missing.
+# *.so and *.gguf files are gitignored, so this runs on the first
+# `bash scripts/rum-vm.sh llama` call to fill `./workloads/llama`
+# with the necessary libraries for llama-bench to run.
 #
 # We always pull the ubuntu-x64 release: the .so closure runs inside the x64
 # buildroot guest, not on whatever host invokes this script. The downloaded
-# release does NOT bundle libgomp/libssl/libcrypto, and the guest rootfs lacks
-# them, so those three are still copied from the build host.
+# The guest host also lacks libgomp/libssl/libcrypto, but llama-bench needs
+# them, so they are copied from the build host.
+#
+# This script also downloads Qen 2.5 0.5 and saves it in `./inputs`
+#
+# It will unnecessarl=ily download files if only one file is missing so
+# TODO: it could be smarter about that.
 #
 # Usage:
-#   scripts/stage-llama.sh                 # download (cached) + stage
-#   LLAMA_VERSION=b9568 scripts/stage-llama.sh
-#   LLAMA_CACHE=/path/to/cache scripts/stage-llama.sh
-#   LLAMA_MODEL=/path/to/model.gguf scripts/stage-llama.sh   # use a local model
+#   scripts/setup-llama.sh                 # download + setup
+#   LLAMA_VERSION=b9568 scripts/setup-llama.sh
+#   LLAMA_MODEL=/path/to/model.gguf scripts/setup-llama.sh   # use a local model
 set -euo pipefail
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
@@ -25,7 +26,6 @@ REPO="$(dirname "$SCRIPT_DIR")"
 
 # --- Knobs ------------------------------------------------------------------
 LLAMA_VERSION="${LLAMA_VERSION:-b9568}"
-LLAMA_CACHE="${LLAMA_CACHE:-$REPO/.cache/llama}"
 ASSET="llama-${LLAMA_VERSION}-bin-ubuntu-x64.tar.gz"
 RELEASE_URL="https://github.com/ggml-org/llama.cpp/releases/download/${LLAMA_VERSION}/${ASSET}"
 
@@ -34,7 +34,11 @@ MODEL_URL="https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/$
 
 DEST="$REPO/workloads/llama"
 INPUTS="$REPO/inputs"
-mkdir -p "$DEST" "$INPUTS" "$LLAMA_CACHE"
+mkdir -p "$DEST" "$INPUTS"
+
+# Scratch dir for the release tarball; removed on exit (no persistent cache).
+TMP="$(mktemp -d)"
+trap 'rm -rf "$TMP"' EXIT
 
 # --- Downloader (curl or wget), with a clear error if neither is present ----
 fetch() {  # fetch <url> <dest>
@@ -50,27 +54,18 @@ fetch() {  # fetch <url> <dest>
 }
 
 echo "Version      : $LLAMA_VERSION (ubuntu-x64)"
-echo "Cache        : $LLAMA_CACHE"
 echo "Binaries+libs: $DEST"
 echo "Model        : $INPUTS"
 echo
 
-# --- Download + unpack the prebuilt release (cached) ------------------------
+# --- Download + unpack the prebuilt release -------------------------------
 # The ubuntu-x64 tarball unpacks to a flat top-level dir, llama-<version>/,
 # holding llama-bench, llama-cli and the lib*.so* closure.
-TARBALL="$LLAMA_CACHE/$ASSET"
-LLAMA_DIR="$LLAMA_CACHE/llama-${LLAMA_VERSION}"
-if [ ! -e "$LLAMA_DIR/llama-bench" ]; then
-    if [ ! -e "$TARBALL" ]; then
-        echo "  download $ASSET"
-        fetch "$RELEASE_URL" "$TARBALL.part"
-        mv "$TARBALL.part" "$TARBALL"
-    else
-        echo "  cached   $ASSET"
-    fi
-    echo "  unpack   $ASSET"
-    tar xzf "$TARBALL" -C "$LLAMA_CACHE"
-fi
+echo "  download $ASSET"
+fetch "$RELEASE_URL" "$TMP/$ASSET"
+echo "  unpack   $ASSET"
+tar xzf "$TMP/$ASSET" -C "$TMP"
+LLAMA_DIR="$TMP/llama-${LLAMA_VERSION}"
 [ -e "$LLAMA_DIR/llama-bench" ] || { echo "!! $LLAMA_DIR/llama-bench missing after unpack" >&2; exit 1; }
 
 # --- Binaries: llama-bench (driver) + llama-cli (optional correctness smoke) -
