@@ -1,6 +1,9 @@
 #!/bin/sh
 
 INTERACTIVE=0
+CRAM_NID=""       # NUMA node id of the CRAM tier (set by cram_setup)
+CRAM_DAX=""       # sysfs path of the backing dax device
+CRAM_DEV=""       # dax device name, e.g. dax0.0
 
 detect_interactive() {
     # Check kernel command line for interactive=1
@@ -8,6 +11,73 @@ detect_interactive() {
         echo "Interactive mode detected: skipping workload and shutdown."
         INTERACTIVE=1
     fi
+}
+
+# Bring the NVDIMM up as a read-only CRAM tier. This replaces LtRAM's automatic
+# boot-time node-1 zone: dax_kmem only hotplugs onto a memoryless node, so the
+# NVDIMM -> devdax namespace -> kmem-bind -> cram=1/zratio=1000 -> online dance
+# has to happen here in userspace. Placement onto the tier is reclaim-driven
+# (no scanner), so there is nothing per-workload to start/stop.
+cram_setup() {
+    mount | grep -q debugfs || mount -t debugfs none /sys/kernel/debug 2>/dev/null
+
+    modprobe -q nfit 2>/dev/null
+    modprobe -q nd_pmem dax_pmem device_dax 2>/dev/null
+    modprobe -q kmem 2>/dev/null
+    sleep 1    # let eudev settle the nvdimm/region devices
+
+    if ! command -v ndctl >/dev/null 2>&1; then
+        echo "[cram] ERROR: ndctl missing from rootfs (need eudev+ndctl)"; return 1
+    fi
+    # Turn each pmem region into a devdax-mode namespace (what kmem binds to).
+    # TODO(kmohr): the metadata tips a 256 MiB device under the 2nd 128 MiB memory
+    # block and dax_kmem onlines only 128 MiB (perceived halves to 32768 pages).
+    for r in $(ndctl list -R 2>/dev/null | grep -oE 'region[0-9]+'); do
+        ndctl create-namespace -m devdax -e "${r/region/namespace}.0" -f >/dev/null 2>&1
+    done
+    sleep 1
+
+    # Pick a dax device whose target_node is memoryless (the CRAM candidate).
+    local NODEB=/sys/devices/system/node d nid
+    for d in /sys/bus/dax/devices/dax*; do
+        [ -e "$d/target_node" ] || continue
+        nid=$(cat "$d/target_node")
+        [ "$nid" -ge 0 ] 2>/dev/null || continue
+        tr ',' '\n' < "$NODEB/has_memory" | grep -qw "$nid" && continue
+        CRAM_DAX="$d"; CRAM_DEV=$(basename "$d"); CRAM_NID="$nid"; break
+    done
+    if [ -z "$CRAM_DEV" ]; then
+        echo "[cram] ERROR: no dax device on a memoryless node"; return 1
+    fi
+    echo "[cram] $CRAM_DEV -> node $CRAM_NID"
+
+    # Bind to kmem (unbind from device_dax first if needed).
+    local drv
+    drv=$(basename "$(readlink "$CRAM_DAX/driver" 2>/dev/null)" 2>/dev/null)
+    [ "$drv" = device_dax ] && echo "$CRAM_DEV" > /sys/bus/dax/drivers/device_dax/unbind 2>/dev/null
+    [ "$drv" = kmem ] || echo "$CRAM_DEV" > /sys/bus/dax/drivers/kmem/new_id 2>/dev/null
+    sleep 1
+
+    # Configure 1:1 (no compression) and online -> cram_register().
+    echo unplugged > "$CRAM_DAX/state"       2>/dev/null
+    echo 1         > "$CRAM_DAX/cram"         2>/dev/null
+    echo 1000      > "$CRAM_DAX/cram_zratio"  2>/dev/null
+    echo online    > "$CRAM_DAX/state"        2>/dev/null
+    sleep 1
+
+    if tr ',' '\n' < "$NODEB/has_private_memory" | grep -qw "$CRAM_NID"; then
+        echo "[cram] node $CRAM_NID online as CRAM tier"
+        cat /sys/kernel/debug/cram/nodes 2>/dev/null
+    else
+        echo "[cram] WARNING: node $CRAM_NID did not come up private"
+    fi
+}
+
+# Reverse of cram_setup: evict resident folios and remove the private node.
+cram_teardown() {
+    [ -n "$CRAM_DAX" ] || return 0
+    echo unplugged > "$CRAM_DAX/state" 2>/dev/null
+    echo 0         > "$CRAM_DAX/cram"  2>/dev/null
 }
 
 start_run() {
@@ -19,6 +89,9 @@ start_run() {
     mount -t 9p -o trans=virtio workloads /mnt/workloads
     mount -t 9p -o trans=virtio results /mnt/results
     mount -t 9p -o trans=virtio inputs /mnt/inputs
+
+    # Bring up the CRAM tier (replaces LtRAM's automatic boot-time node-1 zone).
+    cram_setup
 
     # Verify NUMA topology was picked up correctly
     numactl --hardware > /mnt/results/numa-topology.txt
@@ -33,6 +106,13 @@ start_run() {
 
     # Start monitoring
     sh /mnt/workloads/monitoring/meminfo_log.sh > /mnt/results/meminfo_$1.txt &
+
+    # CRAM demote/promote/wear counters, time-sampled. Reset first so the series
+    # and totals are per-workload. Guarded so a non-CRAM kernel run is unaffected.
+    if [ -d /sys/kernel/debug/cram ]; then
+        echo reset > /sys/kernel/debug/cram/control 2>/dev/null
+        sh /mnt/workloads/monitoring/cram_stats_log.sh > /mnt/results/cram_stats_$1.csv &
+    fi
 }
 
 run_workload() {
@@ -104,23 +184,41 @@ end_run() {
     # Snapshot the dmesgs to check for warnings
     cp /var/log/messages /mnt/results/messages
 
-    # Per-node memory breakdown
-    for node in 0 1; do
+    # Per-node memory breakdown (node 0 = DRAM, CRAM_NID = the tier)
+    for node in 0 ${CRAM_NID:-1}; do
       cat /sys/devices/system/node/node${node}/meminfo \
-        > /mnt/results/node${node}-meminfo.txt
+        > /mnt/results/node${node}-meminfo.txt 2>/dev/null
     done
 
     # End monitoring
     sh /mnt/workloads/monitoring/meminfo_log.sh --end /mnt/results/meminfo_$1.txt > /mnt/results/meminfo_summary_$1.txt
 
-    # Your custom debugfs counters (once you've added them to the kernel)
-    cat /sys/kernel/debug/ltram/stats > /mnt/results/ltram-stats.txt 2>/dev/null || true
+    # Final CRAM state: per-node table, erase histogram, and raw counters.
+    if [ -d /sys/kernel/debug/cram ]; then
+        {
+            echo "== nodes =="; cat /sys/kernel/debug/cram/nodes
+            echo "== erase_histogram =="; cat /sys/kernel/debug/cram/erase_histogram
+            for c in demote_count promote_count promote_fail wear_programs wear_denied; do
+                printf "%s %s\n" "$c" "$(cat /sys/kernel/debug/cram/$c 2>/dev/null)"
+            done
+        } > /mnt/results/cram-stats.txt 2>/dev/null || true
+    fi
+
+    # Stop the CRAM stats sampler and write its min/avg/max/final summary
+    # (no-op if the sampler never started on a non-CRAM kernel).
+    if [ -f /mnt/results/cram_stats_$1.csv ]; then
+        sh /mnt/workloads/monitoring/cram_stats_log.sh --end /mnt/results/cram_stats_$1.csv \
+            > /mnt/results/cram_stats_summary_$1.txt 2>/dev/null || true
+    fi
 
     # In interactive mode, do not power off the VM
     if [ "$INTERACTIVE" -eq 1 ]; then
-        echo "Interactive mode: leaving VM running."
+        echo "Interactive mode: leaving VM running (CRAM tier still online)."
         return 0
     fi
+
+    # Tear the CRAM tier down cleanly before shutdown.
+    cram_teardown
 
     # Done — power off
     echo "Workload complete. Powering off..."
